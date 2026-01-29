@@ -19,6 +19,10 @@ class Settings(BaseSettings):
         return v
     DB_SSLMODE: str = Field("require", env="DB_SSLMODE")
 
+    # Simple admin credentials (read from .env)
+    ADMIN_USERNAME: str = Field(..., env="ADMIN_USERNAME")
+    ADMIN_PASSWORD: str = Field(..., env="ADMIN_PASSWORD")
+
     # Optional full URL (overrides components if provided)
     DATABASE_URL: Optional[str] = None
 

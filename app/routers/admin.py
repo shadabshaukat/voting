@@ -16,11 +16,15 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/login", response_model=schemas.Token)
-def login(login_req: LoginRequest, db_session: Session = Depends(db.SessionLocal)):
-    user = auth.authenticate_user(db_session, login_req.username, login_req.password)
-    if not user:
+def login(login_req: LoginRequest):
+    # Simple validation against credentials stored in .env via Settings
+    if (
+        login_req.username != config.settings.ADMIN_USERNAME
+        or login_req.password != config.settings.ADMIN_PASSWORD
+    ):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
-    access_token = auth.create_access_token(data={"sub": user.username})
+    # If credentials match, generate a token for the admin user
+    access_token = auth.create_access_token(data={"sub": login_req.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
 

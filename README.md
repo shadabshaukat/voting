@@ -147,6 +147,8 @@ Create the file (or copy the provided template) and adjust the values to match y
 | `DB_USER` | Database user | `voting_user` |
 | `DB_PASSWORD` | Database password (single‑quoted; special characters are stripped by the app) | `voting_pass` |
 | `DB_SSLMODE` | SSL mode (require) | `require` |
+| `ADMIN_USERNAME` | Admin username for simple .env authentication | `admin` |
+| `ADMIN_PASSWORD` | Admin password for simple .env authentication | `admin123` |
 | `JWT_SECRET_KEY` | Secret used to sign JWT tokens | `supersecretkey` |
 | `JWT_ALGORITHM` | Algorithm for JWT | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `60` |
