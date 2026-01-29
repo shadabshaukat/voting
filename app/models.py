@@ -19,6 +19,7 @@ class Poll(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    slug = Column(String(255), unique=True, index=True, nullable=True)
     is_active = Column(Boolean, default=False)
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
@@ -46,6 +47,7 @@ class Choice(Base):
     id = Column(Integer, primary_key=True, index=True)
     question_id = Column(Integer, ForeignKey("questions.id"))
     text = Column(String(255), nullable=False)
+    is_correct = Column(Boolean, default=False)
 
     question = relationship("Question", back_populates="choices")
     votes = relationship("Vote", back_populates="choice", cascade="all, delete-orphan")

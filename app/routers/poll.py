@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from .. import models, schemas, db
 
@@ -20,6 +21,20 @@ def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):
     poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found")
+    return poll
+
+@router.get("/by-title", response_model=schemas.PollRead)
+def get_poll_by_title(title: str, db_session: Session = Depends(db.get_db)):
+    poll = (
+        db_session.query(models.Poll)
+        .filter(
+            models.Poll.is_active == True,
+            func.lower(models.Poll.title) == func.lower(title),
+        )
+        .first()
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Active poll not found for given title")
     return poll
 
 
