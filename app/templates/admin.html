@@ -34,16 +34,72 @@
         <form id="create-poll-form">
             <label>Title</label>
             <input type="text" name="title" required>
+
             <label>Description</label>
             <textarea name="description"></textarea>
-            <label>Start Time (ISO)</label>
-            <input type="datetime-local" name="start_time">
-            <label>End Time (ISO)</label>
-            <input type="datetime-local" name="end_time">
-            <label>Questions (JSON format)</label>
-            <textarea name="questions" rows="6" placeholder='[{"text":"Q1","choices":[{"text":"A"},{"text":"B"}]}, ...]' required></textarea>
+
+            <label>Start Time</label>
+            <input type="datetime-local" name="start_time" required>
+
+            <label>End Time</label>
+            <input type="datetime-local" name="end_time" required>
+
+            <div id="questions-container"></div>
+
+            <button type="button" id="add-question-btn">Add Question</button>
             <button type="submit">Create Poll</button>
         </form>
+
+        <script>
+        // Dynamic question/choice builder
+        let questionCount = 0;
+
+        function createChoiceInput(qIdx) {
+            const choiceDiv = document.createElement('div');
+            choiceDiv.className = 'choice-block';
+            choiceDiv.innerHTML = `
+                <input type="text" name="choice-${qIdx}" placeholder="Choice text" required>
+                <button type="button" class="remove-choice-btn">Remove Choice</button>
+            `;
+            choiceDiv.querySelector('.remove-choice-btn').onclick = () => choiceDiv.remove();
+            return choiceDiv;
+        }
+
+        function createQuestionBlock() {
+            const qIdx = questionCount++;
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question-block';
+            qDiv.innerHTML = `
+                <hr>
+                <label>Question Text</label>
+                <input type="text" name="question-${qIdx}" placeholder="Question text" required>
+                <div class="choices-container" id="choices-${qIdx}"></div>
+                <button type="button" class="add-choice-btn">Add Choice</button>
+                <button type="button" class="remove-question-btn">Remove Question</button>
+            `;
+
+            // Add choice handler
+            qDiv.querySelector('.add-choice-btn').onclick = () => {
+                const choicesDiv = qDiv.querySelector(`#choices-${qIdx}`);
+                choicesDiv.appendChild(createChoiceInput(qIdx));
+            };
+
+            // Remove question handler
+            qDiv.querySelector('.remove-question-btn').onclick = () => qDiv.remove();
+
+            // Start with two empty choices
+            const choicesDiv = qDiv.querySelector(`#choices-${qIdx}`);
+            choicesDiv.appendChild(createChoiceInput(qIdx));
+            choicesDiv.appendChild(createChoiceInput(qIdx));
+
+            return qDiv;
+        }
+
+        document.getElementById('add-question-btn').onclick = () => {
+            const container = document.getElementById('questions-container');
+            container.appendChild(createQuestionBlock());
+        };
+        </script>
 
         <h2>Existing Polls</h2>
         <div id="poll-list"></div>
@@ -91,80 +147,100 @@ document.getElementById('login-form').onsubmit = async (e) => {
     }
 };
 
-// Create poll
-document.getElementById('create-poll-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const f = e.target;
-    const payload = {
-        title: f.title.value,
-        description: f.description.value,
-        start_time: f.start_time.value ? new Date(f.start_time.value).toISOString() : null,
-        end_time: f.end_time.value ? new Date(f.end_time.value).toISOString() : null,
-        questions: JSON.parse(f.questions.value)
-    };
-    try {
-        await api('/admin/polls', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
-        alert('Poll created');
-        f.reset();
-        loadPolls();
-    } catch (err) {
-        alert('Failed to create poll: ' + err.message);
-    }
-};
+        // Create poll
+        document.getElementById('create-poll-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const f = e.target;
 
-// Load polls
-async function loadPolls() {
-    const listDiv = document.getElementById('poll-list');
-    listDiv.innerHTML = 'Loading...';
-    try {
-        const polls = await api('/admin/polls');
-        if (polls.length === 0) {
-            listDiv.innerHTML = '<p>No polls yet.</p>';
-            return;
+            // Gather questions and choices from dynamic UI
+            const questions = [];
+            const qBlocks = document.querySelectorAll('.question-block');
+            qBlocks.forEach(qb => {
+                const qText = qb.querySelector(`input[name^="question-"]`).value.trim();
+                if (!qText) return; // skip empty
+                const choices = [];
+                const choiceInputs = qb.querySelectorAll('.choice-block input');
+                choiceInputs.forEach(ci => {
+                    const cText = ci.value.trim();
+                    if (cText) choices.push({ text: cText });
+                });
+                if (choices.length === 0) return; // need at least one choice
+                questions.push({ text: qText, choices });
+            });
+
+            const payload = {
+                title: f.title.value,
+                description: f.description.value,
+                start_time: f.start_time.value ? new Date(f.start_time.value).toISOString() : null,
+                end_time: f.end_time.value ? new Date(f.end_time.value).toISOString() : null,
+                questions
+            };
+            try {
+                await api('/admin/polls', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
+                alert('Poll created');
+                // Reset form and dynamic sections
+                f.reset();
+                document.getElementById('questions-container').innerHTML = '';
+                questionCount = 0;
+                loadPolls();
+            } catch (err) {
+                alert('Failed to create poll: ' + err.message);
+            }
+        };
+
+        // Load polls
+        async function loadPolls() {
+            const listDiv = document.getElementById('poll-list');
+            listDiv.innerHTML = 'Loading...';
+            try {
+                const polls = await api('/admin/polls');
+                if (!polls || polls.length === 0) {
+                    listDiv.innerHTML = '<p>No existing Poll</p>';
+                    return;
+                }
+                listDiv.innerHTML = '';
+                polls.forEach(p => {
+                    const div = document.createElement('div');
+                    div.style.border = '1px solid #ccc';
+                    div.style.padding = '0.5rem';
+                    div.style.marginBottom = '0.5rem';
+                    div.innerHTML = `
+                        <strong>${p.title}</strong> (ID: ${p.id})<br>
+                        Active: ${p.is_active}<br>
+                        <button data-id="${p.id}" class="activate-btn">Activate</button>
+                        <button data-id="${p.id}" class="deactivate-btn">Deactivate</button>
+                        <button data-id="${p.id}" class="results-btn">View Results</button>
+                        <pre style="max-height:150px;overflow:auto;">${JSON.stringify(p, null, 2)}</pre>
+                    `;
+                    listDiv.appendChild(div);
+                });
+
+                // Attach handlers
+                document.querySelectorAll('.activate-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const id = btn.dataset.id;
+                        await api(`/admin/polls/${id}/activate`, { method: 'POST' });
+                        loadPolls();
+                    };
+                });
+                document.querySelectorAll('.deactivate-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const id = btn.dataset.id;
+                        await api(`/admin/polls/${id}/deactivate`, { method: 'POST' });
+                        loadPolls();
+                    };
+                });
+                document.querySelectorAll('.results-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const id = btn.dataset.id;
+                        const res = await api(`/admin/polls/${id}/results`);
+                        alert(JSON.stringify(res, null, 2));
+                    };
+                });
+            } catch (err) {
+                listDiv.innerHTML = `<p>Error loading polls: ${err.message}</p>`;
+            }
         }
-        listDiv.innerHTML = '';
-        polls.forEach(p => {
-            const div = document.createElement('div');
-            div.style.border = '1px solid #ccc';
-            div.style.padding = '0.5rem';
-            div.style.marginBottom = '0.5rem';
-            div.innerHTML = `
-                <strong>${p.title}</strong> (ID: ${p.id})<br>
-                Active: ${p.is_active}<br>
-                <button data-id="${p.id}" class="activate-btn">Activate</button>
-                <button data-id="${p.id}" class="deactivate-btn">Deactivate</button>
-                <button data-id="${p.id}" class="results-btn">View Results</button>
-                <pre style="max-height:150px;overflow:auto;">${JSON.stringify(p, null, 2)}</pre>
-            `;
-            listDiv.appendChild(div);
-        });
-
-        // Attach handlers
-        document.querySelectorAll('.activate-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
-                await api(`/admin/polls/${id}/activate`, { method: 'POST' });
-                loadPolls();
-            };
-        });
-        document.querySelectorAll('.deactivate-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
-                await api(`/admin/polls/${id}/deactivate`, { method: 'POST' });
-                loadPolls();
-            };
-        });
-        document.querySelectorAll('.results-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
-                const res = await api(`/admin/polls/${id}/results`);
-                alert(JSON.stringify(res, null, 2));
-            };
-        });
-    } catch (err) {
-        listDiv.innerHTML = `<p>Error loading polls: ${err.message}</p>`;
-    }
-}
 </script>
 </body>
 </html>

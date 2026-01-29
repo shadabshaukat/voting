@@ -75,7 +75,7 @@ def create_poll(poll_in: schemas.PollCreate, db_session: Session = Depends(db.Se
     return poll
 
 
-@router.get("/polls", response_model=List[schemas.PollRead], dependencies=[Depends(auth.get_current_admin_user)])
+@router.get("/polls", response_model=List[schemas.PollRead])
 def list_polls(db_session: Session = Depends(db.SessionLocal)):
     polls = db_session.query(models.Poll).all()
     return polls
