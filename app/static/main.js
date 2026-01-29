@@ -43,12 +43,12 @@ async function startPoll(pollId, participant) {
         qDiv.innerHTML = `<p><strong>${q.text}</strong></p>`;
         q.choices.forEach((c) => {
             const label = document.createElement('label');
+            label.className = 'option-line';
             label.innerHTML = `
                 <input type="radio" name="q_${q.id}" value="${c.id}" required>
-                ${c.text}
+                <span class="option-text">${c.text}</span>
             `;
             qDiv.appendChild(label);
-            qDiv.appendChild(document.createElement('br'));
         });
         form.appendChild(qDiv);
     });

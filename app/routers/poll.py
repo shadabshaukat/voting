@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -16,13 +16,7 @@ def get_active_polls(db_session: Session = Depends(db.get_db)):
     return polls
 
 
-@router.get("/{poll_id}", response_model=schemas.PollRead)
-def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):
-    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
-    if not poll:
-        raise HTTPException(status_code=404, detail="Active poll not found")
-    return poll
-
+# Important: declare the static route before the dynamic one to avoid 422 due to path matching
 @router.get("/by-title", response_model=schemas.PollRead)
 def get_poll_by_title(title: str, db_session: Session = Depends(db.get_db)):
     poll = (
@@ -35,6 +29,14 @@ def get_poll_by_title(title: str, db_session: Session = Depends(db.get_db)):
     )
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found for given title")
+    return poll
+
+
+@router.get("/{poll_id}", response_model=schemas.PollRead)
+def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):
+    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
+    if not poll:
+        raise HTTPException(status_code=404, detail="Active poll not found")
     return poll
 
 
