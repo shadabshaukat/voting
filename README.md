@@ -141,7 +141,12 @@ Create the file (or copy the provided template) and adjust the values to match y
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | SQLAlchemy connection string for PostgreSQL | `postgresql+psycopg2://voting_user:voting_pass@localhost:5432/voting` |
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_NAME` | Database name | `voting` |
+| `DB_USER` | Database user | `voting_user` |
+| `DB_PASSWORD` | Database password (single‑quoted; special characters are stripped by the app) | `voting_pass` |
+| `DB_SSLMODE` | SSL mode (require) | `require` |
 | `JWT_SECRET_KEY` | Secret used to sign JWT tokens | `supersecretkey` |
 | `JWT_ALGORITHM` | Algorithm for JWT | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `60` |
