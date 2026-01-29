@@ -73,10 +73,23 @@ sudo apt-get install -y postgresql-17
 sudo systemctl enable --now postgresql
 
 # 6. Create the application database and user
+# Run these commands as the PostgreSQL superuser (postgres)
 sudo -u postgres psql <<SQL
+-- Create the application user
 CREATE USER voting_user WITH PASSWORD 'voting_pass';
-CREATE DATABASE voting OWNER voting_user;
+
+-- Create the database
+CREATE DATABASE voting;
+
+-- Assign ownership of the database to the new user
+ALTER DATABASE voting OWNER TO voting_user;
 SQL
+
+# If you encounter the error:
+#   ERROR:  must be able to SET ROLE "voting_user"
+# it means the current role does not have permission to set the new role.
+# Using the separate CREATE DATABASE + ALTER DATABASE steps (as shown above)
+# avoids that issue.
 ```
 
 ## Project Setup (using `uv`)
