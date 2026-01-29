@@ -20,118 +20,102 @@ A modern **Python FastAPI** backend with a **Progressive Web App** (PWA) fronten
   - Service worker caches assets  
 
 - **Tech Stack**  
-  - **Backend**: FastAPI, SQLAlchemy, PostgreSQL (Docker)  
+  - **Backend**: FastAPI, SQLAlchemy, PostgreSQL (installed on the host)  
   - **Auth**: JWT (passlib bcrypt)  
   - **Frontend**: Vanilla JS, HTML, CSS, Chart.js (via CDN)  
 
-## Repository & Deployment Details
+## Prerequisites
 
-- **Repository**: Create a new GitHub repository (e.g., `github.com/yourusername/votingapp`).  
-- **Branching**: `main` holds the production‑ready code.  
-- **CI/CD (optional)**: Add a GitHub Actions workflow that runs `docker build` and pushes the image to GitHub Packages or Docker Hub on every push to `main`.  
-- **Docker Hub**: If you wish to publish the image, tag it as `yourusername/votingapp:latest` and push with `docker push`.  
+- **Ubuntu 22.04+** (or any recent Debian‑based distro)  
+- **Python 3.11** (or newer)  
+- **uv** – a fast Python package installer & runner  
+- **PostgreSQL 17** – will be installed via the system package manager  
 
-## Build & Run (Docker)
-
-The application is fully containerised. All you need is Docker & Docker Compose.
-
-### Install Docker Engine & Docker Compose (Ubuntu)
+## Install `uv`
 
 ```bash
-# 1. Update package index
+# Install uv (single‑line installer)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Ensure ~/.local/bin is on your PATH
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Install PostgreSQL 17
+
+```bash
+# Add the PostgreSQL APT repository
+sudo apt-get install -y wget gnupg lsb-release ca-certificates
+wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+
+# Install PostgreSQL 17
 sudo apt-get update
+sudo apt-get install -y postgresql-17
 
-# 2. Install prerequisites
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
+# Start the service and enable it at boot
+sudo systemctl enable --now postgresql
 
-# 3. Add Docker’s GPG key
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
-# 4. Set up the stable repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 5. Refresh package index
-sudo apt-get update
-
-# 6. Install Docker Engine and the Compose plugin
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# 7. (Optional) Allow your user to run Docker without sudo
-sudo usermod -aG docker $USER
-newgrp docker   # or log out / log back in
+# Create the application database and user
+sudo -u postgres psql <<SQL
+CREATE USER voting_user WITH PASSWORD 'voting_pass';
+CREATE DATABASE voting OWNER voting_user;
+SQL
 ```
 
-### Build the image and start the stack
+## Project Setup (using `uv`)
 
 ```bash
-cd /Users/shadab/Downloads/votingapp   # adjust if you cloned elsewhere
-docker compose build          # builds the FastAPI image
-docker compose up -d          # starts db and web containers
+# Clone the repository (or copy the source folder)
+git clone https://github.com/yourusername/votingapp.git
+cd votingapp
+
+# Install Python dependencies
+uv pip install -r requirements.txt
+
+# Apply database migrations / create tables (FastAPI does this on startup)
+# No extra step required – the app will call `Base.metadata.create_all` automatically.
 ```
 
-### Verify the services
+## Run the Application
 
 ```bash
-docker compose ps
-ss -tulpn | grep 8000   # should show LISTEN on 0.0.0.0:8000
+# Using uv to run the server
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Stop the stack
+The API will be reachable at `http://0.0.0.0:8000`:
 
-```bash
-docker compose down
-```
+- Attendee UI: `http://0.0.0.0:8000/`  
+- Admin dashboard: `http://0.0.0.0:8000/admin`
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | SQLAlchemy connection string for PostgreSQL | `postgresql+psycopg2://postgres:voting_pass@db:5432/voting` |
+| `DATABASE_URL` | SQLAlchemy connection string for PostgreSQL | `postgresql+psycopg2://voting_user:voting_pass@localhost:5432/voting` |
 | `JWT_SECRET_KEY` | Secret used to sign JWT tokens | `supersecretkey` |
 | `JWT_ALGORITHM` | Algorithm for JWT | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `60` |
 
-You can override any of these in a `.env` file placed at the project root; Docker Compose will automatically load it.
+You can override any of these in a `.env` file placed at the project root; `uv run` will automatically load it.
 
 ## Default Admin Account
 
 - **Username:** `admin`  
 - **Password:** `admin123`
 
-The first start of the container creates this user automatically if it does not exist. You can create additional admin users via the `/admin/create-admin` endpoint or through the UI after logging in.
+The first start of the application creates this user automatically if it does not exist. You can create additional admin users via the `/admin/create-admin` endpoint or through the UI after logging in.
 
-## Development (without Docker)
+## Development (without `uv`)
 
-1. Create a virtual environment  
+If you prefer a classic virtual environment:
 
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-2. Install dependencies  
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Set the `DATABASE_URL` environment variable (example for a local Postgres instance)  
-
-   ```bash
-   export DATABASE_URL=postgresql+psycopg2://postgres:voting_pass@localhost:5432/voting
-   ```
-
-4. Run the server  
-
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
 ## Using the Admin Dashboard
 
@@ -184,10 +168,6 @@ votingapp/
 │  └─ templates/
 │      ├─ index.html   # Attendee UI
 │      └─ admin.html   # Admin dashboard
-├─ db/
-│   └─ init.sql        # Optional seed script executed on first DB start
-├─ docker-compose.yml
-├─ Dockerfile
 ├─ requirements.txt
 └─ README.md
 ```
@@ -197,39 +177,6 @@ votingapp/
 - **Timer length** – set `end_time` when creating a poll (ISO 8601). If omitted, the UI will use the default 2 minutes.  
 - **Styling** – edit `static/style.css`.  
 - **Charts** – the admin results are returned as JSON; you can integrate Chart.js in `admin.html` to display dynamic graphs.
-
-## Known Issues & Troubleshooting
-
-1. **Container exits shortly after start**  
-   - **Check logs:** `docker logs votingapp-web` – look for import errors, missing env vars, or DB connection failures.  
-   - **Database readiness:** The web container depends on the `db` service healthcheck. If the DB is still initializing, the web container may crash. Restart it after a few seconds: `docker compose restart web`.  
-
-2. **Port 8000 not listening**  
-   - Verify the container is running: `docker compose ps`.  
-   - Ensure no other process on the host is using port 8000. If needed, change the host port mapping in `docker-compose.yml` (e.g., `"8080:8000"`).  
-
-3. **Database connection errors**  
-   - Confirm the `DATABASE_URL` matches the credentials defined in the `db` service (`postgres:voting_pass@db:5432/voting`).  
-   - If you changed the password, update both the environment variable in `docker-compose.yml` and any `.env` file.  
-
-4. **FastAPI reload not reflecting code changes**  
-   - The Dockerfile runs the app without `--reload`. For development, you can modify the `command` in `docker-compose.yml` to:  
-     ```yaml
-     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-     ```  
-   - Re‑build the image after changes: `docker compose build`.
-
-5. **Permission denied when editing files inside the container**  
-   - The container runs as a non‑root user (`appuser`). If you need to modify files at runtime, either mount the volume with appropriate permissions or run a temporary shell as root:  
-     ```bash
-     docker exec -it --user root votingapp-web /bin/bash
-     ```
-
-6. **Service worker not registering**  
-   - Ensure you access the app via `http://<host-ip>:8000` (not `localhost` when testing from another machine).  
-   - Check the browser console for any CORS or mixed‑content warnings.
-
-If you encounter any other issues, reviewing the container logs and confirming environment variables are the quickest ways to diagnose problems.
 
 ## License
 
