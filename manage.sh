@@ -38,6 +38,18 @@ build() {
 start() {
     activate_venv
 
+    # If a previous server is still running, terminate it first
+    if [[ -f "${PID_FILE}" ]]; then
+        PREV_PID=$(cat "${PID_FILE}")
+        if kill -0 "${PREV_PID}" 2>/dev/null; then
+            echo "Killing previous server process (PID ${PREV_PID})..."
+            kill "${PREV_PID}"
+            # Give the OS a moment to release the port
+            sleep 1
+        fi
+        rm -f "${PID_FILE}"
+    fi
+
     # Create DB tables if they do not exist (SQLAlchemy's create_all is idempotent)
     echo "Ensuring database tables exist..."
     uv run python - <<EOF

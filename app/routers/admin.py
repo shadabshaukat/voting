@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
 
 from .. import models, schemas, db, auth
@@ -13,10 +12,11 @@ router = APIRouter()
 # ---------- Authentication ----------
 @router.post("/token", response_model=schemas.Token)
 def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    username: str = Form(...),
+    password: str = Form(...),
     db_session: Session = Depends(db.SessionLocal),
 ):
-    user = auth.authenticate_user(db_session, form_data.username, form_data.password)
+    user = auth.authenticate_user(db_session, username, password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token = auth.create_access_token(data={"sub": user.username})
