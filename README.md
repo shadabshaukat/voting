@@ -86,6 +86,7 @@ ALTER DATABASE voting OWNER TO voting_user;
 
 -- Alternately
 GRANT ALL PRIVILEGES ON DATABASE voting TO voting_user;
+GRANT ALL ON SCHEMA public TO voting_user; 
 SQL
 
 # If you encounter the error:
