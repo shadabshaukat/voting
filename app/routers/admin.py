@@ -32,7 +32,7 @@ def login(login_req: LoginRequest):
 @router.post("/create-admin", response_model=schemas.Token)
 def create_admin(
     user_in: schemas.UserCreate,
-    db_session: Session = Depends(db.SessionLocal),
+    db_session: Session = Depends(db.get_db),
 ):
     existing = db_session.query(models.User).filter(models.User.username == user_in.username).first()
     if existing:
