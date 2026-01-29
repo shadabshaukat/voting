@@ -99,8 +99,8 @@ SQL
 
 ```bash
 # Clone the repository (or copy the source folder)
-git clone https://github.com/yourusername/votingapp.git
-cd votingapp
+git clone https://github.com/shadabshaukat/voting.git
+cd voting
 
 # Create a virtual environment (recommended)
 uv venv .venv
