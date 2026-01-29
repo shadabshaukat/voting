@@ -106,6 +106,9 @@ The API will be reachable at `http://0.0.0.0:8000`:
 
 ## Environment Variables
 
+The application reads its configuration from a **.env** file placed in the project root.  
+Create the file (or copy the provided template) and adjust the values to match your environment.
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLAlchemy connection string for PostgreSQL | `postgresql+psycopg2://voting_user:voting_pass@localhost:5432/voting` |
