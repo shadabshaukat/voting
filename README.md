@@ -102,8 +102,15 @@ SQL
 git clone https://github.com/yourusername/votingapp.git
 cd votingapp
 
-# Install Python dependencies
+# Create a virtual environment (recommended)
+uv venv .venv
+source .venv/bin/activate   # or: . .venv/bin/activate
+
+# Install Python dependencies into the venv
 uv pip install -r requirements.txt
+
+# If you prefer not to use a venv, you can install system‑wide:
+# uv pip install -r requirements.txt --system
 
 # The FastAPI app will create tables automatically on first run.
 ```
@@ -119,6 +126,36 @@ The API will be reachable at `http://0.0.0.0:8000`:
 
 - Attendee UI: `http://0.0.0.0:8000/`  
 - Admin dashboard: `http://0.0.0.0:8000/admin`
+
+## Management Script
+
+A helper script **manage.sh** is provided to simplify building, starting, and stopping the application in the `uv` virtual environment.
+
+```bash
+# Make the script executable
+chmod +x manage.sh
+
+# Build the virtual environment and install dependencies
+./manage.sh build
+
+# Start the server (runs in background, stores PID in uvicorn.pid)
+./manage.sh start
+
+# Stop the server
+./manage.sh stop
+```
+
+The `start` command also ensures that database tables are created if they do not already exist (SQLAlchemy’s `create_all` is idempotent, so existing objects are left untouched).
+
+```
+# Example workflow
+./manage.sh build   # one‑time setup
+./manage.sh start   # launch the app
+# ... use the app ...
+./manage.sh stop    # shut it down
+```
+
+The script handles virtual‑environment activation automatically, so you never need to run `uv` commands manually.
 
 ## Environment Variables
 
