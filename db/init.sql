@@ -1,0 +1,5 @@
+-- This script runs only on the first container start.
+-- The database and user are already created via environment variables.
+-- Place any seed data here if desired, e.g., INSERT statements.
+-- Example (optional):
+-- INSERT INTO users (username, hashed_password, is_admin) VALUES ('admin', '\$2b\$12\$examplehashedpassword', true);
