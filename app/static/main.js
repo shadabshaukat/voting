@@ -67,6 +67,7 @@ async function startPoll(pollId, participant) {
         const timerEl = document.createElement('div');
         timerEl.id = 'timer';
         container.appendChild(timerEl);
+        timerEl.textContent = `Time left: ${remaining}s`;
         pollTimer = setInterval(() => {
             remaining--;
             timerEl.textContent = `Time left: ${remaining}s`;
@@ -82,7 +83,9 @@ async function startPoll(pollId, participant) {
         if (pollTimer) clearInterval(pollTimer);
         const votes = [];
         pollData.questions.forEach((q) => {
-            const choiceId = form[`q_${q.id}`].value;
+            const choiceInput = form[`q_${q.id}`];
+            if (!choiceInput) return;
+            const choiceId = choiceInput.value;
             votes.push({ question_id: q.id, choice_id: parseInt(choiceId) });
         });
         const payload = { participant, votes };
@@ -99,19 +102,52 @@ async function startPoll(pollId, participant) {
     };
 }
 
-// ---------- INITIAL LOAD ----------
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const activePolls = await fetchJSON('/poll/active');
-        if (activePolls.length === 0) {
-            document.getElementById('poll-container').innerHTML = '<p>No active polls at the moment.</p>';
+// ---------- INITIAL LOAD WITH POLL NAME MODAL ----------
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('pollname-modal');
+    const form = document.getElementById('pollname-form');
+    const useActiveBtn = document.getElementById('use-active-btn');
+    const container = document.getElementById('poll-container');
+
+    function proceedWithPoll(pollId) {
+        modal.style.display = 'none';
+        showParticipantModal(pollId);
+    }
+
+    async function handleUseActive() {
+        try {
+            const activePolls = await fetchJSON('/poll/active');
+            if (!activePolls || activePolls.length === 0) {
+                alert('No active polls at the moment.');
+                container.innerHTML = '<p>No active polls at the moment.</p>';
+                return;
+            }
+            proceedWithPoll(activePolls[0].id);
+        } catch (err) {
+            console.error(err);
+            alert('Error loading active polls: ' + err.message);
+            container.innerHTML = '<p>Error loading poll.</p>';
+        }
+    }
+
+    async function handleLoadByTitle(e) {
+        e.preventDefault();
+        const title = (form.elements['pollname'].value || '').trim();
+        if (!title) {
+            alert('Please enter a poll name or click "Use Active Poll".');
             return;
         }
-        // For simplicity, take the first active poll
-        const pollId = activePolls[0].id;
-        showParticipantModal(pollId);
-    } catch (err) {
-        console.error(err);
-        document.getElementById('poll-container').innerHTML = '<p>Error loading poll.</p>';
+        try {
+            const poll = await fetchJSON(`/poll/by-title?title=${encodeURIComponent(title)}`);
+            proceedWithPoll(poll.id);
+        } catch (err) {
+            console.error(err);
+            alert('Could not find an active poll with that name. Please check the name or use the active poll option.');
+        }
     }
+
+    // Show modal and bind events
+    if (modal) modal.style.display = 'block';
+    if (useActiveBtn) useActiveBtn.onclick = handleUseActive;
+    if (form) form.onsubmit = handleLoadByTitle;
 });

@@ -8,6 +8,7 @@ from fastapi import Request
 
 from . import db, models, auth
 from .routers import admin, poll
+from sqlalchemy import text
 
 app = FastAPI(
     title="Voting & Trivia Application",
@@ -41,11 +42,30 @@ async def admin_root(request: Request):
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(poll.router, prefix="/poll", tags=["poll"])
 
+# Lightweight, idempotent migrations to keep DB schema in sync when columns are added later
+# This avoids 500s like "column polls.slug does not exist" on older databases
+
+def run_startup_migrations():
+    with db.engine.begin() as conn:
+        # Add missing columns if the DB was created before these fields existed
+        conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS slug VARCHAR(255);"))
+        # Create a unique index for slug to mimic uniqueness (portable and safe)
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_polls_slug ON polls (slug);"))
+
+        conn.execute(text("ALTER TABLE choices ADD COLUMN IF NOT EXISTS is_correct BOOLEAN DEFAULT FALSE;"))
+        conn.execute(text("UPDATE choices SET is_correct = FALSE WHERE is_correct IS NULL;"))
+
+        # In case participants.company was added later
+        conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS company VARCHAR(150);"))
+
 # Create DB tables on startup if they don't exist
 @app.on_event("startup")
 def on_startup():
     # Create tables
     models.Base.metadata.create_all(bind=db.engine)
+
+    # Apply idempotent migrations for older databases
+    run_startup_migrations()
 
     # Ensure a default admin user exists
     db_session = db.SessionLocal()

@@ -57,6 +57,10 @@ from app.db import engine, Base
 Base.metadata.create_all(bind=engine)
 EOF
 
+    # Apply idempotent migrations (safe to run multiple times)
+    echo "Applying lightweight DB migrations..."
+    uv run python -m app.migrate || true
+
     # Start uvicorn in background and store its PID
     echo "Starting FastAPI server..."
     uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
