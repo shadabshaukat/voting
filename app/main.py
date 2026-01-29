@@ -28,6 +28,16 @@ app.add_middleware(
 )
 
 # Include routers
+# Root endpoint  serve the attendee UI (index.html)
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# Admin dashboard  serve the admin UI (admin.html)
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_root(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
+
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(poll.router, prefix="/poll", tags=["poll"])
 
