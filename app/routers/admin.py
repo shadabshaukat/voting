@@ -10,12 +10,16 @@ router = APIRouter()
 
 
 # ---------- Authentication ----------
+from fastapi import Request
+
 @router.post("/token", response_model=schemas.Token)
-def login_for_access_token(
-    username: str = Form(...),
-    password: str = Form(...),
+async def login_for_access_token(
+    request: Request,
     db_session: Session = Depends(db.SessionLocal),
 ):
+    form = await request.form()
+    username = form.get("username")
+    password = form.get("password")
     user = auth.authenticate_user(db_session, username, password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
