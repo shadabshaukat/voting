@@ -83,6 +83,9 @@ CREATE DATABASE voting;
 
 -- Assign ownership of the database to the new user
 ALTER DATABASE voting OWNER TO voting_user;
+
+-- Alternately
+GRANT ALL PRIVILEGES ON DATABASE voting TO voting_user;
 SQL
 
 # If you encounter the error:
