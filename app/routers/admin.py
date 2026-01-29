@@ -47,7 +47,7 @@ def create_admin(
 
 
 # ---------- Poll Management ----------
-@router.post("/polls", response_model=schemas.PollRead, dependencies=[Depends(auth.get_current_admin_user)])
+@router.post("/polls", response_model=schemas.PollRead)
 def create_poll(poll_in: schemas.PollCreate, db_session: Session = Depends(db.SessionLocal)):
     # Create Poll
     poll = models.Poll(
