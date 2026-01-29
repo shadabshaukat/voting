@@ -35,35 +35,58 @@ A modern **Python FastAPI** backend with a **Progressive Web App** (PWA) fronten
 
 The application is fully containerised. All you need is Docker & Docker Compose.
 
-### Build the image (optional)
+### Install Docker Engine & Docker Compose (Ubuntu)
 
 ```bash
-cd /Users/shadab/Downloads/votingapp
-docker build -t votingapp:latest .
+# 1. Update package index
+sudo apt-get update
+
+# 2. Install prerequisites
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+
+# 3. Add Docker’s GPG key
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# 4. Set up the stable repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# 5. Refresh package index
+sudo apt-get update
+
+# 6. Install Docker Engine and the Compose plugin
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# 7. (Optional) Allow your user to run Docker without sudo
+sudo usermod -aG docker $USER
+newgrp docker   # or log out / log back in
 ```
 
-> The `Dockerfile` uses a lightweight Python 3.11‑slim base, installs the dependencies from `requirements.txt`, and sets a non‑root user.
-
-### Start the stack
+### Build the image and start the stack
 
 ```bash
-docker-compose up -d
+cd /Users/shadab/Downloads/votingapp   # adjust if you cloned elsewhere
+docker compose build          # builds the FastAPI image
+docker compose up -d          # starts db and web containers
 ```
 
-- **PostgreSQL 17** container (`votingapp-db`) runs with a superuser `postgres` and a database named `voting`.  
-- **FastAPI** container (`votingapp-web`) is exposed on **0.0.0.0:8000** (binds to all host interfaces).  
+### Verify the services
 
-The API will be reachable at `http://localhost:8000`.  
-- Attendee UI: `http://localhost:8000/`  
-- Admin dashboard: `http://localhost:8000/admin`
+```bash
+docker compose ps
+ss -tulpn | grep 8000   # should show LISTEN on 0.0.0.0:8000
+```
 
 ### Stop the stack
 
 ```bash
-docker-compose down
+docker compose down
 ```
-
-All containers are stopped and removed; volumes (including the database data) are preserved unless you add `-v`.
 
 ## Environment Variables
 
@@ -174,6 +197,39 @@ votingapp/
 - **Timer length** – set `end_time` when creating a poll (ISO 8601). If omitted, the UI will use the default 2 minutes.  
 - **Styling** – edit `static/style.css`.  
 - **Charts** – the admin results are returned as JSON; you can integrate Chart.js in `admin.html` to display dynamic graphs.
+
+## Known Issues & Troubleshooting
+
+1. **Container exits shortly after start**  
+   - **Check logs:** `docker logs votingapp-web` – look for import errors, missing env vars, or DB connection failures.  
+   - **Database readiness:** The web container depends on the `db` service healthcheck. If the DB is still initializing, the web container may crash. Restart it after a few seconds: `docker compose restart web`.  
+
+2. **Port 8000 not listening**  
+   - Verify the container is running: `docker compose ps`.  
+   - Ensure no other process on the host is using port 8000. If needed, change the host port mapping in `docker-compose.yml` (e.g., `"8080:8000"`).  
+
+3. **Database connection errors**  
+   - Confirm the `DATABASE_URL` matches the credentials defined in the `db` service (`postgres:voting_pass@db:5432/voting`).  
+   - If you changed the password, update both the environment variable in `docker-compose.yml` and any `.env` file.  
+
+4. **FastAPI reload not reflecting code changes**  
+   - The Dockerfile runs the app without `--reload`. For development, you can modify the `command` in `docker-compose.yml` to:  
+     ```yaml
+     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+     ```  
+   - Re‑build the image after changes: `docker compose build`.
+
+5. **Permission denied when editing files inside the container**  
+   - The container runs as a non‑root user (`appuser`). If you need to modify files at runtime, either mount the volume with appropriate permissions or run a temporary shell as root:  
+     ```bash
+     docker exec -it --user root votingapp-web /bin/bash
+     ```
+
+6. **Service worker not registering**  
+   - Ensure you access the app via `http://<host-ip>:8000` (not `localhost` when testing from another machine).  
+   - Check the browser console for any CORS or mixed‑content warnings.
+
+If you encounter any other issues, reviewing the container logs and confirming environment variables are the quickest ways to diagnose problems.
 
 ## License
 
