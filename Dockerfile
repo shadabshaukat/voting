@@ -30,5 +30,8 @@ USER appuser
 # Expose the port FastAPI runs on
 EXPOSE 8000
 
+# Ensure the app package is on the Python path
+ENV PYTHONPATH=/home/appuser
+
 # Run the application with Uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
