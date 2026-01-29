@@ -73,10 +73,14 @@ document.getElementById('login-form').onsubmit = async (e) => {
     data.append('username', f.username.value);
     data.append('password', f.password.value);
     try {
-        const res = await api('/admin/token', {
+        const payload = {
+            username: f.username.value,
+            password: f.password.value
+        };
+        const res = await api('/admin/login', {
             method: 'POST',
-            body: data.toString(),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
         });
         token = res.access_token;
         document.getElementById('login-section').style.display = 'none';

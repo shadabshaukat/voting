@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import models, schemas, db, auth
@@ -9,18 +10,14 @@ from .. import models, schemas, db, auth
 router = APIRouter()
 
 
-# ---------- Authentication ----------
-from fastapi import Request
+# ---------- Simple JSON Authentication ----------
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-@router.post("/token", response_model=schemas.Token)
-async def login_for_access_token(
-    request: Request,
-    db_session: Session = Depends(db.SessionLocal),
-):
-    form = await request.form()
-    username = form.get("username")
-    password = form.get("password")
-    user = auth.authenticate_user(db_session, username, password)
+@router.post("/login", response_model=schemas.Token)
+def login(login_req: LoginRequest, db_session: Session = Depends(db.SessionLocal)):
+    user = auth.authenticate_user(db_session, login_req.username, login_req.password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token = auth.create_access_token(data={"sub": user.username})
