@@ -10,13 +10,13 @@ router = APIRouter()
 
 # ---------- Public Endpoints ----------
 @router.get("/active", response_model=List[schemas.PollRead])
-def get_active_polls(db_session: Session = Depends(db.SessionLocal)):
+def get_active_polls(db_session: Session = Depends(db.get_db)):
     polls = db_session.query(models.Poll).filter(models.Poll.is_active == True).all()
     return polls
 
 
 @router.get("/{poll_id}", response_model=schemas.PollRead)
-def get_poll(poll_id: int, db_session: Session = Depends(db.SessionLocal)):
+def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):
     poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found")
@@ -28,7 +28,7 @@ def get_poll(poll_id: int, db_session: Session = Depends(db.SessionLocal)):
 def submit_votes(
     poll_id: int,
     vote_data: schemas.VoteSubmit,
-    db_session: Session = Depends(db.SessionLocal),
+    db_session: Session = Depends(db.get_db),
 ):
     poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
     if not poll:

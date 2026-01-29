@@ -41,7 +41,7 @@ class ChoiceRead(BaseModel):
     text: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class QuestionRead(BaseModel):
@@ -50,7 +50,7 @@ class QuestionRead(BaseModel):
     choices: List[ChoiceRead]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PollRead(BaseModel):
@@ -63,7 +63,7 @@ class PollRead(BaseModel):
     questions: List[QuestionRead]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # ---------- Participant ----------
