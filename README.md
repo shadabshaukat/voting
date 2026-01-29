@@ -29,7 +29,7 @@ A modern **Python FastAPI** backend with a **Progressive Web App** (PWA) fronten
 - **Ubuntu 22.04+** (or any recent Debian‑based distro)  
 - **Python 3.11** (or newer)  
 - **uv** – a fast Python package installer & runner  
-- **PostgreSQL 17** – will be installed via the system package manager  
+- **PostgreSQL 17** – will be installed via the official PostgreSQL APT repository  
 
 ## Install `uv`
 
@@ -40,22 +40,39 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+## Clean up any existing PostgreSQL installation
+
+```bash
+# Stop the service if it is running
+sudo systemctl stop postgresql
+
+# Remove all PostgreSQL packages and configuration files
+sudo apt-get --purge remove -y postgresql*
+sudo rm -rf /etc/postgresql /var/lib/postgresql
+```
+
 ## Install PostgreSQL 17
 
 ```bash
-# Add the PostgreSQL APT repository
+# 1. Install required utilities
 sudo apt-get install -y wget gnupg lsb-release ca-certificates
-wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
-echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 
-# Install PostgreSQL 17
+# 2. Add the PostgreSQL APT repository signing key
+wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
+    sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+
+# 3. Add the repository (replace $(lsb_release -cs) with your Ubuntu codename, e.g. noble)
+echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | \
+    sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+
+# 4. Update package lists and install PostgreSQL 17
 sudo apt-get update
 sudo apt-get install -y postgresql-17
 
-# Start the service and enable it at boot
+# 5. Enable and start the service
 sudo systemctl enable --now postgresql
 
-# Create the application database and user
+# 6. Create the application database and user
 sudo -u postgres psql <<SQL
 CREATE USER voting_user WITH PASSWORD 'voting_pass';
 CREATE DATABASE voting OWNER voting_user;
@@ -72,8 +89,7 @@ cd votingapp
 # Install Python dependencies
 uv pip install -r requirements.txt
 
-# Apply database migrations / create tables (FastAPI does this on startup)
-# No extra step required – the app will call `Base.metadata.create_all` automatically.
+# The FastAPI app will create tables automatically on first run.
 ```
 
 ## Run the Application
