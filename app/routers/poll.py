@@ -63,7 +63,7 @@ def submit_votes(
     vote_data: schemas.VoteSubmit,
     db_session: Session = Depends(db.get_db),
 ):
-    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
+    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True, models.Poll.archived == False).first()
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found")
 

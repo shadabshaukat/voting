@@ -21,8 +21,16 @@ function showParticipantModal(pollId) {
             alert('Name is required');
             return;
         }
-        modal.style.display = 'none';
-        await startPoll(pollId, { name, company });
+        try {
+            await startPoll(pollId, { name, company });
+            // Only hide the modal after successful render
+            modal.style.display = 'none';
+        } catch (err) {
+            console.error(err);
+            alert('Could not start the poll. It may no longer be active.');
+            // Ensure entry can be retried
+            sessionStorage.removeItem('selectedPollId');
+        }
     };
 }
 
@@ -95,6 +103,8 @@ async function startPoll(pollId, participant) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
+            // Clear saved selection after successful submission
+            sessionStorage.removeItem('selectedPollId');
             container.innerHTML = '<p>Thank you for voting!</p>';
         } catch (err) {
             alert('Submission failed: ' + err.message);
@@ -140,6 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
     modeSelect.addEventListener('change', updateValueVisibility);
     updateValueVisibility();
 
+    const savedId = sessionStorage.getItem('selectedPollId');
+    if (savedId) {
+        if (modal) modal.style.display = 'none';
+        showParticipantModal(parseInt(savedId, 10));
+        return;
+    }
+
     if (modal) modal.style.display = 'block';
 
     form.onsubmit = async (e) => {
@@ -153,6 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             const pollId = await findPollIdByEntry(type, mode, value);
+            // Persist selection for this tab/session
+            sessionStorage.setItem('selectedPollId', String(pollId));
             modal.style.display = 'none';
             showParticipantModal(pollId);
         } catch (err) {
