@@ -146,9 +146,8 @@ async function findPollIdByEntry(type, mode, value) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Global capture to suppress any default submits or Enter bubbling
-    document.addEventListener('submit', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); } }, true);
+    // Remove global capture suppression so JS handlers can run normally
+    // (We still stop propagation in specific handlers.)
     const container = document.getElementById('poll-container');
     const modal = document.getElementById('entry-modal');
     const form = document.getElementById('entry-form');
@@ -208,8 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         } catch (err) {
             console.error(err);
-            alert('Unable to find an active item: ' + err.message);
-            container.innerHTML = '<p>No active items found.</p>';
+            // Friendlier messaging when no active session
+            container.innerHTML = '<p>No active session found for the selected type. Please check the title/code, or try again when the session is active.</p>';
+            alert('No active session found.');
             return false;
         }
     };
