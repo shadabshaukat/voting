@@ -165,6 +165,17 @@ document.addEventListener('DOMContentLoaded', () => {
     modeSelect.addEventListener('change', updateValueVisibility);
     updateValueVisibility();
 
+    // Suppress Enter submitting forms unexpectedly in modals
+    [modal, document.getElementById('participant-modal')].forEach(m => {
+        if (!m) return;
+        m.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+    });
+
     const savedId = sessionStorage.getItem('selectedPollId');
     if (savedId) {
         if (modal) modal.style.display = 'none';
