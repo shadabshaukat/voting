@@ -345,6 +345,9 @@
                     </div>
                 </div>
                 <pre class="json collapsible" style="max-height:150px;overflow:auto;margin:0.5rem 0;"></pre>
+                <div class="row-results collapsible" style="border-top:1px solid #eee;padding-top:0.5rem;margin-top:0.5rem;">
+                    <div class="row-results-body"></div>
+                </div>
             </div>
         </template>
 
@@ -515,7 +518,67 @@ async function loadPolls() {
             // buttons wired per row
             row.querySelector('.activate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/activate`, { method:'POST' }); loadPolls(); };
             row.querySelector('.deactivate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/deactivate`, { method:'POST' }); loadPolls(); };
-            row.querySelector('.results-btn').onclick = async () => { await openResults(p.id); };
+            row.querySelector('.results-btn').onclick = async () => {
+                const rowResults = row.querySelector('.row-results');
+                const body = row.querySelector('.row-results-body');
+                // Toggle
+                if (rowResults.classList.contains('open')) {
+                    rowResults.classList.remove('open');
+                    body.innerHTML = '';
+                    return;
+                }
+                body.innerHTML = 'Loading results...';
+                try {
+                    const res = await api(`/admin/polls/${p.id}/results`);
+                    body.innerHTML = '';
+                    const isTrivia = (res.poll_type || 'trivia') === 'trivia';
+
+                    const chartsWrap = document.createElement('div');
+                    chartsWrap.style.display = 'grid';
+                    chartsWrap.style.gap = '0.5rem';
+                    body.appendChild(chartsWrap);
+
+                    res.results.forEach((q, idx) => {
+                        const card = document.createElement('div');
+                        card.style.border = '1px solid #eee';
+                        card.style.padding = '0.5rem';
+                        card.style.borderRadius = '6px';
+                        card.innerHTML = `<div style="margin-bottom:0.25rem;"><strong>Q${idx + 1}:</strong> ${q.question_text}</div>`;
+                        const canvas = document.createElement('canvas');
+                        canvas.height = 140;
+                        card.appendChild(canvas);
+                        chartsWrap.appendChild(card);
+
+                        let labels, data, bg, border;
+                        const choiceLabels = q.choices.map(c => c.choice_text);
+                        const choiceVotes = q.choices.map(c => c.votes);
+                        const totalVotes = choiceVotes.reduce((a,b)=>a+b,0) || 1;
+                        if (isTrivia) {
+                            const correctVotes = q.choices.filter(c => !!c.is_correct).reduce((a,c)=>a+c.votes,0);
+                            const incorrectVotes = totalVotes - correctVotes;
+                            labels = ['Correct','Incorrect'];
+                            data = [correctVotes, incorrectVotes];
+                            bg = ['#2e7d32','#d0d0d0'];
+                            border = ['#2e7d32','#8a8a8a'];
+                        } else {
+                            labels = choiceLabels;
+                            data = choiceVotes;
+                            bg = ['#4C78A8','#F58518','#54A24B','#E45756','#72B7B2','#EECA3B','#B279A2','#FF9DA7'];
+                            border = bg;
+                        }
+                        new Chart(canvas.getContext('2d'), {
+                            type: 'doughnut',
+                            data: { labels, datasets: [{ data, backgroundColor: bg, borderColor: border, borderWidth: 1 }] },
+                            options: { responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{ legend:{ position:'bottom' } } }
+                        });
+                    });
+
+                    rowResults.classList.add('open');
+                } catch (err) {
+                    body.innerHTML = `<p>Error loading results: ${err.message}</p>`;
+                    rowResults.classList.add('open');
+                }
+            };
             row.querySelector('.export-btn').onclick = async () => { window.location.href = `/admin/polls/${p.id}/export.csv`; };
             const lbBtn = row.querySelector('.leaderboard-btn');
             if ((p.poll_type || 'trivia') !== 'trivia') {

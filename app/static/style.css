@@ -94,3 +94,6 @@ label.option-line .option-text {
 /* Collapsible block */
 .collapsible { display: none; }
 .collapsible.open { display: block; }
+
+/* Clock icon next to timer text */
+.clock { margin-right: 0.35rem; }

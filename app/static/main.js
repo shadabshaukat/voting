@@ -108,10 +108,18 @@ async function startPoll(pollId, participant) {
         const timerEl = document.createElement('div');
         timerEl.id = 'timer';
         container.appendChild(timerEl);
-        timerEl.textContent = `Time left: ${remaining}s`;
+        function format(ms) {
+            const m = Math.floor(ms / 60);
+            const s = ms % 60;
+            return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+        function renderTimer() {
+            timerEl.innerHTML = `<span class="clock">ð</span> ${format(remaining)}`;
+        }
+        renderTimer();
         pollTimer = setInterval(() => {
             remaining--;
-            timerEl.textContent = `Time left: ${remaining}s`;
+            renderTimer();
             if (remaining <= 0) {
                 clearInterval(pollTimer);
                 form.dispatchEvent(new Event('submit'));
