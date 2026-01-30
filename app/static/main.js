@@ -10,26 +10,35 @@ async function fetchJSON(url, options = {}) {
 
 // ---------- PARTICIPANT POPUP ----------
 function showParticipantModal(pollId) {
+    // Immediately remove entry modal to avoid any stray submit triggering navigation
+    const entry = document.getElementById('entry-modal');
+    if (entry) {
+        entry.style.display = 'none';
+        if (entry.parentNode) entry.parentNode.removeChild(entry);
+    }
     const modal = document.getElementById('participant-modal');
     modal.style.display = 'block';
     const form = document.getElementById('participant-form');
     form.onsubmit = async (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const name = form.elements['name'].value.trim();
         const company = form.elements['company'].value.trim();
         if (!name) {
             alert('Name is required');
-            return;
+            return false;
         }
         try {
             await startPoll(pollId, { name, company });
             // Only hide the modal after successful render
             modal.style.display = 'none';
+            return false;
         } catch (err) {
             console.error(err);
             alert('Could not start the poll. It may no longer be active.');
             // Ensure entry can be retried
             sessionStorage.removeItem('selectedPollId');
+            return false;
         }
     };
 }
@@ -167,23 +176,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.onsubmit = async (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const type = typeSelect.value;
         const mode = modeSelect.value;
         const value = (valueInput.value || '').trim();
         if (mode !== 'active' && !value) {
             alert('Please provide a value for the selected join method.');
-            return;
+            return false;
         }
         try {
             const pollId = await findPollIdByEntry(type, mode, value);
             // Persist selection for this tab/session
             sessionStorage.setItem('selectedPollId', String(pollId));
-            modal.style.display = 'none';
+            // Remove the entry modal immediately
+            if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
             showParticipantModal(pollId);
+            return false;
         } catch (err) {
             console.error(err);
             alert('Unable to find an active item: ' + err.message);
             container.innerHTML = '<p>No active items found.</p>';
+            return false;
         }
     };
 });
