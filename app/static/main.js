@@ -146,6 +146,9 @@ async function findPollIdByEntry(type, mode, value) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Global capture to suppress any default submits or Enter bubbling
+    document.addEventListener('submit', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); } }, true);
     const container = document.getElementById('poll-container');
     const modal = document.getElementById('entry-modal');
     const form = document.getElementById('entry-form');
