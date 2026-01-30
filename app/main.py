@@ -58,6 +58,22 @@ def run_startup_migrations():
         # In case participants.company was added later
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS company VARCHAR(150);"))
 
+        # Poll type column for different modes: 'trivia' (has correct answers) vs 'survey'/'poll'
+        conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS poll_type VARCHAR(20) DEFAULT 'trivia';"))
+
+        # Votes: ensure question_id exists and is backfilled; add unique index to prevent duplicate votes per question
+        conn.execute(text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS question_id INTEGER;"))
+        conn.execute(text(
+            """
+            UPDATE votes v
+            SET question_id = c.question_id
+            FROM choices c
+            WHERE v.choice_id = c.id AND v.question_id IS NULL;
+            """
+        ))
+        conn.execute(text("ALTER TABLE votes ALTER COLUMN question_id SET NOT NULL;"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_votes_participant_question ON votes (participant_id, question_id);"))
+
 # Create DB tables on startup if they don't exist
 @app.on_event("startup")
 def on_startup():

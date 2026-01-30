@@ -78,7 +78,7 @@ def submit_votes(
         if not choice:
             raise HTTPException(status_code=400, detail=f"Invalid choice ID {vote.choice_id}")
 
-        vote_record = models.Vote(participant_id=participant.id, choice_id=choice.id)
+        vote_record = models.Vote(participant_id=participant.id, choice_id=choice.id, question_id=question.id)
         db_session.add(vote_record)
 
     db_session.commit()

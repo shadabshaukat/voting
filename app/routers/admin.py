@@ -18,6 +18,7 @@ def serialize_poll(poll: models.Poll) -> dict:
         "title": poll.title,
         "description": poll.description,
         "slug": poll.slug,
+        "poll_type": getattr(poll, "poll_type", "trivia"),
         "is_active": bool(poll.is_active),
         "start_time": poll.start_time.isoformat() if poll.start_time else None,
         "end_time": poll.end_time.isoformat() if poll.end_time else None,
@@ -80,6 +81,7 @@ async def create_poll(request: Request):
 
         title = (payload.get("title") or "").strip()
         description = payload.get("description")
+        poll_type = (payload.get("poll_type") or "trivia").strip().lower()
         start_time = payload.get("start_time")
         end_time = payload.get("end_time")
         questions = payload.get("questions", [])
@@ -113,6 +115,7 @@ async def create_poll(request: Request):
             title=title,
             description=description,
             slug=slug,
+            poll_type=poll_type,
             is_active=False,
             start_time=parse_dt(start_time),
             end_time=parse_dt(end_time),
@@ -132,13 +135,29 @@ async def create_poll(request: Request):
                 c_text = (c.get("text") or "").strip()
                 if not c_text:
                     continue
-                is_correct = bool(c.get("is_correct", False))
+                is_correct = bool(c.get("is_correct", False)) if poll_type == "trivia" else False
                 choice = models.Choice(question_id=question.id, text=c_text, is_correct=is_correct)
                 db_session.add(choice)
 
         db_session.commit()
         db_session.refresh(poll)
         return serialize_poll(poll)
+    finally:
+        db_session.close()
+
+
+@router.delete("/polls/{poll_id}")
+def delete_poll(poll_id: int):
+    """Delete a poll and all related data (questions, choices, participants, votes).
+    Cascades are configured on relationships, so ORM delete will remove dependents."""
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        db_session.delete(poll)
+        db_session.commit()
+        return {"detail": "Poll deleted"}
     finally:
         db_session.close()
 
@@ -217,21 +236,22 @@ def poll_results(poll_id: int):
                 })
             results.append(q_res)
 
-        return {"poll_id": poll.id, "title": poll.title, "results": results}
+        return {"poll_id": poll.id, "title": poll.title, "poll_type": getattr(poll, "poll_type", "trivia"), "results": results}
     finally:
         db_session.close()
 
 
 @router.get("/polls/{poll_id}/winners")
 def poll_winners(poll_id: int):
-    """Compute winners (participants with all answers correct)."""
+    """Compute winners (participants with all answers correct). Only valid for 'trivia' polls."""
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
         if not poll:
             raise HTTPException(status_code=404, detail="Poll not found")
+        if getattr(poll, "poll_type", "trivia") != "trivia":
+            raise HTTPException(status_code=400, detail="Winners are only applicable for trivia polls")
         total_questions = len(poll.questions)
-        # Map of correct choice ids for quick lookup
         correct_choice_ids = set(
             c.id for q in poll.questions for c in q.choices if getattr(c, "is_correct", False)
         )
@@ -248,7 +268,6 @@ def poll_winners(poll_id: int):
                 "total_questions": total_questions,
                 "is_winner": (correct == total_questions and total_questions > 0)
             })
-        # Winners list
         winners = [r for r in results if r["is_winner"]]
         return {"poll_id": poll.id, "title": poll.title, "total_questions": total_questions, "participants": results, "winners": winners}
     finally:
@@ -262,6 +281,8 @@ def pick_random_winner(poll_id: int):
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
         if not poll:
             raise HTTPException(status_code=404, detail="Poll not found")
+        if getattr(poll, "poll_type", "trivia") != "trivia":
+            raise HTTPException(status_code=400, detail="Picking a winner is only applicable for trivia polls")
         total_questions = len(poll.questions)
         correct_choice_ids = set(
             c.id for q in poll.questions for c in q.choices if getattr(c, "is_correct", False)

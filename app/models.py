@@ -20,6 +20,7 @@ class Poll(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     slug = Column(String(255), unique=True, index=True, nullable=True)
+    poll_type = Column(String(20), nullable=False, default="trivia")
     is_active = Column(Boolean, default=False)
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
@@ -71,7 +72,9 @@ class Vote(Base):
     id = Column(Integer, primary_key=True, index=True)
     participant_id = Column(Integer, ForeignKey("participants.id"))
     choice_id = Column(Integer, ForeignKey("choices.id"))
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     participant = relationship("Participant", back_populates="votes")
     choice = relationship("Choice", back_populates="votes")
+    question = relationship("Question")

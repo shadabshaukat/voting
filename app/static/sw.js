@@ -6,6 +6,7 @@ self.addEventListener('install', (event) => {
                 '/static/style.css',
                 '/static/main.js',
                 '/static/manifest.json',
+                '/static/icon.svg',
                 '/admin',
             ]);
         })

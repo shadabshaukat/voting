@@ -31,6 +31,7 @@ class QuestionCreate(BaseModel):
 class PollCreate(BaseModel):
     title: str = Field(..., max_length=255)
     description: Optional[str] = None
+    poll_type: str = Field("trivia")  # 'trivia' | 'survey' | 'poll'
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     questions: List[QuestionCreate]
@@ -57,6 +58,7 @@ class PollRead(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
+    poll_type: str
     is_active: bool
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None

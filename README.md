@@ -2,13 +2,16 @@
 
 A modern **Python FastAPI** backend with a **Progressive Web App** (PWA) frontend that lets an admin create polls/trivia questionnaires, set a time limit, and view dynamic results. Attendees can join via a unique URL, enter their name & company, answer multiple‑choice questions, and have their responses recorded.
 
+This app is designed as a single PWA that can run surveys/polls/trivia for multiple users at web‑scale (e.g., seminars and conferences), highlighting PostgreSQL’s capabilities for modern apps.
+
 ## Features
 
 - **Admin Dashboard** (`/admin`)  
-  - JWT‑protected login  
-  - Create polls with unlimited questions & choices (JSON format)  
+  - JSON login returning JWT (used by UI)  
+  - Create polls with unlimited questions & choices (supports types: trivia/survey/poll; only trivia has correct answers)  
   - Activate / deactivate polls (sets start/end time)  
-  - View real‑time results (vote counts per choice)  
+  - Delete polls (cascades remove questions, choices, participants, votes)  
+  - View improved results visualizations (doughnut charts with percentage tooltips)  
 
 - **Attendee UI** (`/`)  
   - Popup for name & company before voting  
@@ -21,8 +24,9 @@ A modern **Python FastAPI** backend with a **Progressive Web App** (PWA) fronten
 
 - **Tech Stack**  
   - **Backend**: FastAPI, SQLAlchemy, PostgreSQL (installed on the host)  
-  - **Auth**: JWT (passlib bcrypt)  
-  - **Frontend**: Vanilla JS, HTML, CSS, Chart.js (via CDN)  
+  - **Auth**: JWT  
+  - **Frontend**: Vanilla JS, HTML, CSS, Chart.js (via CDN)
+  - **PWA**: Service Worker + Manifest with vector icon (maskable)  
 
 ## Prerequisites
 
@@ -98,6 +102,8 @@ uv pip install -r requirements.txt
 # Using uv to run the server
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+On startup the app automatically creates tables and applies idempotent migrations to keep older databases compatible (e.g., adds polls.slug, choices.is_correct, participants.company, votes.question_id, and a unique index on (participant_id, question_id)).
 
 The API will be reachable at `http://0.0.0.0:8000`:
 
@@ -175,6 +181,9 @@ uvicorn app.main:app --reload
 
 ## Using the Admin Dashboard
 
+- You can now delete a poll; this cascades to remove all related questions, choices, participants, and votes.
+- Results are displayed with smoother doughnut charts and percentage tooltips; toggle “Show correct answers” to color-code.
+
 1. Open `http://localhost:8000/admin` in a browser.  
 2. Log in with the admin credentials.  
 3. **Create a poll** – fill the form (questions must be a JSON array, e.g.:
@@ -200,8 +209,18 @@ uvicorn app.main:app --reload
 - Open the site in Chrome/Edge on mobile or desktop.  
 - Click the **Install** button in the address bar (or “Add to Home screen”).  
 - The app will work offline for the already‑loaded poll.
+- Manifest now includes a maskable **SVG icon**; service worker pre‑caches core assets (style, JS, manifest, icon).
 
 ## Project Structure
+
+Key improvements vs. original:
+- Added votes.question_id and enforced unique votes per participant per question at the DB level.
+- Startup and migrate scripts backfill and add the constraint idempotently.
+- Admin UI supports deleting polls; backend cascades deletions.
+- Results visualization changed to doughnut charts with a pleasing palette and percentage tooltips.
+- Added poll types (trivia/survey/poll) with UI controls and backend persistence; trivia controls correct answers only.
+- Manifest includes a maskable SVG icon; service worker caches it.
+- Minor cleanups and notes for web‑scale seminar use cases.
 
 ```
 votingapp/
@@ -230,9 +249,32 @@ votingapp/
 
 ## Customisation
 
+- Enforce submission cutoff by end_time: you can add a server‑side check in POST /poll/{id}/submit to reject votes received after end_time.
+- Add rate limiting or IP/session guards for very large events.
+- Introduce pagination/filters for admin listings in very large datasets.
+- Add export endpoints (CSV/JSON) for poll results and participant lists.
+- Add WebSocket channel for real‑time results without polling.
+- Multi‑tenant awareness (org/workspace keys) if you want isolated sets of polls per customer, while still being one PWA.
+
+## Next Steps (Suggested)
+
+- Live leaderboard view for trivia, and trend view for surveys/polls.
+- Role-based admin areas (e.g., event host vs. analyst) without changing your current auth flow yet.
+- Public sharing links with read-only results pages.
+- Bulk import/export of polls via JSON/CSV; templated question sets.
+- Internationalization (i18n) of UI strings.
+- Telemetry and analytics (request rate, submission timings) to showcase Postgres performance at scale.
+- Archival mode: mark polls inactive and archive results instead of deleting.
+
 - **Timer length** – set `end_time` when creating a poll (ISO 8601). If omitted, the UI will use the default 2 minutes.  
 - **Styling** – edit `static/style.css`.  
 - **Charts** – the admin results are returned as JSON; you can integrate Chart.js in `admin.html` to display dynamic graphs.
+
+## Known Limitations and Next Steps
+
+- Admin endpoints are not enforcing authentication on the API routes (UI does obtain a token). If needed later, add route dependencies; per your guidance we are leaving that aside for now.
+- Consider archiving vs. deleting polls; current delete fully removes associated data.
+- CORS is open for development; restrict in production.
 
 ## License
 

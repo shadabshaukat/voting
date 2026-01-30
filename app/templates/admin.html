@@ -44,6 +44,14 @@
 
                 <div style="display:flex;gap:1rem;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
+                        <label>Type</label>
+                        <select id="poll_type" name="poll_type">
+                            <option value="trivia" selected>Trivia (has correct answers)</option>
+                            <option value="survey">Survey (no correct answers)</option>
+                            <option value="poll">Poll (no correct answers)</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;min-width:220px;">
                         <label>Start Time</label>
                         <input type="datetime-local" name="start_time" required>
                     </div>
@@ -77,13 +85,25 @@
             choiceDiv.style.alignItems = 'center';
             choiceDiv.innerHTML = `
                 <input type="text" name="choice-${qIdx}" placeholder="Choice text" required style="flex:1;">
-                <label style="display:flex;align-items:center;gap:0.25rem;">
+                <label class="correct-flag" style="display:flex;align-items:center;gap:0.25rem;">
                     <input type="checkbox" name="is_correct-${qIdx}"> Correct
                 </label>
                 <button type="button" class="remove-choice-btn">Remove</button>
             `;
             choiceDiv.querySelector('.remove-choice-btn').onclick = () => choiceDiv.remove();
             return choiceDiv;
+        }
+
+        function updateCorrectFlagsVisibility() {
+            const type = (document.getElementById('poll_type')?.value || 'trivia');
+            const show = type === 'trivia';
+            document.querySelectorAll('.correct-flag').forEach(el => {
+                el.style.display = show ? 'flex' : 'none';
+                if (!show) {
+                    const chk = el.querySelector('input[type="checkbox"]');
+                    if (chk) chk.checked = false;
+                }
+            });
         }
 
         function createQuestionBlock() {
@@ -120,7 +140,10 @@
         document.getElementById('add-question-btn').onclick = () => {
             const container = document.getElementById('questions-container');
             container.appendChild(createQuestionBlock());
+            updateCorrectFlagsVisibility();
         };
+
+        document.getElementById('poll_type').addEventListener('change', updateCorrectFlagsVisibility);
         </script>
 
         <h2>Existing Polls</h2>
@@ -234,6 +257,7 @@ document.getElementById('create-poll-form').onsubmit = async (e) => {
     const payload = {
         title: f.title.value,
         description: f.description.value,
+        poll_type: (document.getElementById('poll_type')?.value || 'trivia'),
         start_time: f.start_time.value ? new Date(f.start_time.value).toISOString() : null,
         end_time: f.end_time.value ? new Date(f.end_time.value).toISOString() : null,
         questions
@@ -272,6 +296,7 @@ async function loadPolls() {
                 <button data-id="${p.id}" class="activate-btn">Activate</button>
                 <button data-id="${p.id}" class="deactivate-btn">Deactivate</button>
                 <button data-id="${p.id}" class="results-btn">View Results</button>
+                <button data-id="${p.id}" class="delete-btn" style="background:#b00020;">Delete</button>
                 <pre style="max-height:150px;overflow:auto;">${JSON.stringify(p, null, 2)}</pre>
             `;
             listDiv.appendChild(div);
@@ -297,28 +322,51 @@ async function loadPolls() {
                 await openResults(id);
             };
         });
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.onclick = async () => {
+                const id = btn.dataset.id;
+                if (!confirm('Delete this poll and all associated data?')) return;
+                try {
+                    await api(`/admin/polls/${id}`, { method: 'DELETE' });
+                    destroyCharts();
+                    document.getElementById('results-section').style.display = 'none';
+                    loadPolls();
+                } catch (err) {
+                    alert('Failed to delete poll: ' + err.message);
+                }
+            };
+        });
     } catch (err) {
         listDiv.innerHTML = `<p>Error loading polls: ${err.message}</p>`;
     }
 }
 
 function computeColors(isCorrects, highlight) {
-    const defaultBg = 'rgba(54, 162, 235, 0.7)';
-    const defaultBorder = 'rgba(54, 162, 235, 1)';
-    const correctBg = 'rgba(75, 192, 75, 0.85)';
-    const correctBorder = 'rgba(46, 125, 50, 1)';
-    const wrongBg = 'rgba(200, 200, 200, 0.6)';
-    const wrongBorder = 'rgba(136, 136, 136, 1)';
-    if (!highlight) {
-        return {
-            bg: isCorrects.map(() => defaultBg),
-            border: isCorrects.map(() => defaultBorder)
-        };
+    // Pleasant qualitative palette
+    const palette = [
+        '#4C78A8','#F58518','#54A24B','#E45756','#72B7B2','#EECA3B','#B279A2','#FF9DA7','#9D755D','#BAB0AC'
+    ];
+    const correctColor = '#2e7d32';
+    const wrongMuted = '#d0d0d0';
+    const borderMuted = '#8a8a8a';
+    const bg = [];
+    const border = [];
+    for (let i = 0; i < isCorrects.length; i++) {
+        if (!highlight) {
+            const color = palette[i % palette.length];
+            bg.push(color);
+            border.push(color);
+        } else {
+            if (isCorrects[i]) {
+                bg.push(correctColor);
+                border.push(correctColor);
+            } else {
+                bg.push(wrongMuted);
+                border.push(borderMuted);
+            }
+        }
     }
-    return {
-        bg: isCorrects.map(x => x ? correctBg : wrongBg),
-        border: isCorrects.map(x => x ? correctBorder : wrongBorder)
-    };
+    return { bg, border };
 }
 
 function destroyCharts() {
@@ -329,7 +377,15 @@ function destroyCharts() {
 async function openResults(pollId) {
     currentPollId = pollId;
     const res = await api(`/admin/polls/${pollId}/results`);
+    const isTrivia = (res.poll_type || 'trivia') === 'trivia';
     document.getElementById('results-title').textContent = res.title || `Poll ${pollId}`;
+
+    // Toggle trivia-specific UI
+    const toggleCorrectInput = document.getElementById('toggle-correct');
+    const toggleCorrectLabel = toggleCorrectInput?.parentElement;
+    if (toggleCorrectLabel) toggleCorrectLabel.style.display = isTrivia ? 'flex' : 'none';
+    document.getElementById('winners-panel').style.display = isTrivia ? 'block' : 'none';
+    document.getElementById('nonwinners-panel').style.display = isTrivia ? 'block' : 'none';
 
     // Build charts (hidden by default until details enabled)
     destroyCharts();
@@ -352,12 +408,13 @@ async function openResults(pollId) {
         const isCorrects = q.choices.map(c => !!c.is_correct);
         const colors = computeColors(isCorrects, document.getElementById('toggle-correct').checked);
 
+        const total = data.reduce((a,b)=>a+b,0) || 1;
         const chart = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
+            type: 'doughnut',
             data: {
                 labels,
                 datasets: [{
-                    label: '# of Votes',
+                    label: 'Votes',
                     data,
                     backgroundColor: colors.bg,
                     borderColor: colors.border,
@@ -367,8 +424,22 @@ async function openResults(pollId) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                cutout: '55%',
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const value = ctx.parsed;
+                                const pct = ((value / total) * 100).toFixed(0);
+                                return `${ctx.label}: ${value} (${pct}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true
                 }
             }
         });
