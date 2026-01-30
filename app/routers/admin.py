@@ -88,6 +88,7 @@ async def create_poll(request: Request):
         start_time = payload.get("start_time")
         end_time = payload.get("end_time")
         questions = payload.get("questions", [])
+        requested_slug = (payload.get("slug") or "").strip().lower() or None
 
         if not title:
             raise HTTPException(status_code=400, detail="Title is required")
@@ -105,14 +106,23 @@ async def create_poll(request: Request):
             except Exception:
                 return None
 
-        # Generate slug from title and ensure uniqueness
-        import re
-        base_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-        slug = base_slug or f"poll-{int(datetime.utcnow().timestamp())}"
-        i = 2
-        while db_session.query(models.Poll).filter(models.Poll.slug == slug).first():
-            slug = f"{base_slug}-{i}"
-            i += 1
+        # Generate or validate slug (supports custom short code)
+        import re, random, string
+        def unique_slug(base: str) -> str:
+            s = base or f"poll-{int(datetime.utcnow().timestamp())}"
+            i = 2
+            while db_session.query(models.Poll).filter(models.Poll.slug == s).first():
+                s = f"{base}-{i}"
+                i += 1
+            return s
+
+        if requested_slug:
+            base_slug = re.sub(r"[^a-z0-9]+", "-", requested_slug.lower()).strip("-")
+            base_slug = base_slug or ''.join(random.choices(string.ascii_lowercase + string.digits, k=5))
+            slug = unique_slug(base_slug)
+        else:
+            base_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+            slug = unique_slug(base_slug)
 
         poll = models.Poll(
             title=title,

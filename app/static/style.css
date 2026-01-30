@@ -12,6 +12,7 @@ body {
     padding: 2rem;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: relative;
 }
 
 h1, h2 {
@@ -68,3 +69,28 @@ label.option-line .option-text {
 #vote-form button[type="submit"] {
     margin-top: 0.75rem;
 }
+
+/* Top-right timer */
+#timer {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Status dots for admin list */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+    margin-left: 0.25rem;
+}
+.status-dot.active { color: #2e7d32; background-color: #2e7d32; }
+.status-dot.inactive { color: #b00020; background-color: #b00020; }
+
+/* Collapsible block */
+.collapsible { display: none; }
+.collapsible.open { display: block; }

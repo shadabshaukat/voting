@@ -145,6 +145,14 @@ async function findPollIdByEntry(type, mode, value) {
     throw new Error('Invalid mode');
 }
 
+function currentPathSlug() {
+    const path = location.pathname.replace(/^\/+/, '');
+    if (!path) return null;
+    // only accept simple 5-20 char lowercase/digit codes to avoid conflicts
+    if (/^[a-z0-9-]{5,20}$/.test(path)) return path;
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Remove global capture suppression so JS handlers can run normally
     // (We still stop propagation in specific handlers.)
@@ -182,6 +190,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedId) {
         if (modal) modal.style.display = 'none';
         showParticipantModal(parseInt(savedId, 10));
+        return;
+    }
+    // Auto-join by URL slug
+    const pathSlug = currentPathSlug();
+    if (pathSlug) {
+        (async () => {
+            try {
+                // Try all types in order: trivia, survey, poll
+                const types = ['trivia','survey','poll'];
+                for (const t of types) {
+                    try {
+                        const res = await fetchJSON(`/poll/by-slug?slug=${encodeURIComponent(pathSlug)}&type=${encodeURIComponent(t)}`);
+                        if (res && res.id) {
+                            sessionStorage.setItem('selectedPollId', String(res.id));
+                            if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+                            showParticipantModal(res.id);
+                            return;
+                        }
+                    } catch (_) { /* continue */ }
+                }
+                container.innerHTML = '<p>No active session found for this link.</p>';
+            } catch (err) {
+                container.innerHTML = '<p>No active session found for this link.</p>';
+            }
+        })();
         return;
     }
 

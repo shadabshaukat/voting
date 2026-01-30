@@ -60,6 +60,21 @@
                         <input type="datetime-local" name="end_time" required>
                     </div>
                 </div>
+
+                <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem;">
+                    <div style="flex:1;min-width:220px;">
+                        <label>Session duration (minutes)</label>
+                        <input type="number" id="session_minutes" min="1" placeholder="e.g., 30">
+                    </div>
+                    <div style="flex:1;min-width:220px;">
+                        <label>Short URL code (optional)</label>
+                        <input type="text" name="slug" id="slug" placeholder="e.g., a1b2c">
+                        <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
+                            <input type="checkbox" id="generate_url"> Generate URL code
+                        </label>
+                        <div id="slug_preview" style="font-size:0.9rem;color:#555;margin-top:0.25rem;display:none;"></div>
+                    </div>
+                </div>
             </fieldset>
 
             <fieldset>
@@ -259,10 +274,79 @@
         };
 
         document.getElementById('poll_type').addEventListener('change', updateCorrectFlagsVisibility);
+
+        // Session minutes and slug generation
+        function toLocalDatetimeValue(d) {
+            const pad = (n) => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+        function applySessionMinutes() {
+            const minutes = parseInt(document.getElementById('session_minutes').value, 10);
+            if (!minutes || minutes <= 0) return;
+            const now = new Date();
+            const end = new Date(now.getTime() + minutes*60000);
+            const f = document.getElementById('create-poll-form');
+            f.start_time.value = toLocalDatetimeValue(now);
+            f.end_time.value = toLocalDatetimeValue(end);
+        }
+        document.getElementById('session_minutes').addEventListener('input', applySessionMinutes);
+
+        function randomCode(len=5) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let s='';
+            for (let i=0;i<len;i++) s += chars[Math.floor(Math.random()*chars.length)];
+            return s;
+        }
+        const genCheckbox = document.getElementById('generate_url');
+        const slugInput = document.getElementById('slug');
+        const slugPreview = document.getElementById('slug_preview');
+        function updateSlugPreview() {
+            const code = slugInput.value.trim();
+            if (code) {
+                slugPreview.style.display = 'block';
+                slugPreview.textContent = `URL: ${location.origin}/${code}`;
+            } else {
+                slugPreview.style.display = 'none';
+                slugPreview.textContent = '';
+            }
+        }
+        genCheckbox.addEventListener('change', () => {
+            if (genCheckbox.checked && !slugInput.value.trim()) {
+                slugInput.value = randomCode(5);
+                updateSlugPreview();
+            }
+        });
+        slugInput.addEventListener('input', updateSlugPreview);
         </script>
 
         <h2>Existing Polls</h2>
         <div id="poll-list"></div>
+        <template id="poll-row-template">
+            <div class="poll-row" style="border:1px solid #ccc;padding:0.5rem;margin-bottom:0.5rem;">
+                <div class="poll-head" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+                    <div>
+                        <strong class="poll-title"></strong>
+                        <span class="poll-meta"></span>
+                        <span class="status-dot"></span>
+                    </div>
+                    <div>
+                        <button class="toggle-actions">Toggle Actions</button>
+                        <button class="toggle-json">Show details</button>
+                    </div>
+                </div>
+                <div class="actions collapsible">
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.5rem 0;">
+                        <button class="activate-btn">Activate</button>
+                        <button class="deactivate-btn">Deactivate</button>
+                        <button class="results-btn">View Results</button>
+                        <button class="export-btn">Export CSV</button>
+                        <button class="leaderboard-btn">Leaderboard</button>
+                        <button class="delete-btn" style="background:#b00020;">Delete</button>
+                    </div>
+                </div>
+                <pre class="json collapsible" style="max-height:150px;overflow:auto;margin:0.5rem 0;"></pre>
+            </div>
+        </template>
 
         <!-- Results & Winners Panel (simple by default) -->
         <section id="results-section" style="display:none;margin-top:1rem;border-top:1px solid #ddd;padding-top:1rem;">
@@ -382,6 +466,7 @@ document.getElementById('create-poll-form').onsubmit = async (e) => {
         poll_type: (document.getElementById('poll_type')?.value || 'trivia'),
         start_time: f.start_time.value ? new Date(f.start_time.value).toISOString() : null,
         end_time: f.end_time.value ? new Date(f.end_time.value).toISOString() : null,
+        slug: (document.getElementById('slug')?.value || '').trim() || undefined,
         questions
     };
     try {
@@ -407,58 +492,38 @@ async function loadPolls() {
             return;
         }
         listDiv.innerHTML = '';
+        const tpl = document.getElementById('poll-row-template');
         polls.forEach(p => {
-            const div = document.createElement('div');
-            div.style.border = '1px solid #ccc';
-            div.style.padding = '0.5rem';
-            div.style.marginBottom = '0.5rem';
-            div.innerHTML = `
-                <strong>${p.title}</strong> (ID: ${p.id})<br>
-                Type: ${p.poll_type || 'trivia'}<br>
-                Slug: <code>${p.slug || '(none)'}</code><br>
-                Active: ${p.is_active}<br>
-                <button data-id="${p.id}" class="activate-btn">Activate</button>
-                <button data-id="${p.id}" class="deactivate-btn">Deactivate</button>
-                <button data-id="${p.id}" class="results-btn">View Results</button>
-                <button data-id="${p.id}" class="delete-btn" style="background:#b00020;">Delete</button>
-                <pre style="max-height:150px;overflow:auto;">${JSON.stringify(p, null, 2)}</pre>
-            `;
-            listDiv.appendChild(div);
-        });
-
-        document.querySelectorAll('.activate-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
-                await api(`/admin/polls/${id}/activate`, { method: 'POST' });
-                loadPolls();
+            const node = tpl.content.cloneNode(true);
+            node.querySelector('.poll-title').textContent = `${p.title} (ID: ${p.id})`;
+            node.querySelector('.poll-meta').innerHTML = `Type: ${p.poll_type || 'trivia'} | Slug: <code>${p.slug || '(none)'}</code>`;
+            const dot = node.querySelector('.status-dot');
+            dot.className = `status-dot ${p.is_active ? 'active' : 'inactive'}`;
+            dot.title = p.is_active ? 'Active' : 'Inactive';
+            // actions
+            const row = node.querySelector('.poll-row');
+            const actions = node.querySelector('.actions');
+            const json = node.querySelector('.json');
+            const toggleActions = node.querySelector('.toggle-actions');
+            const toggleJson = node.querySelector('.toggle-json');
+            toggleActions.onclick = () => actions.classList.toggle('open');
+            toggleJson.onclick = () => {
+                json.classList.toggle('open');
+                toggleJson.textContent = json.classList.contains('open') ? 'Hide details' : 'Show details';
             };
-        });
-        document.querySelectorAll('.deactivate-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
-                await api(`/admin/polls/${id}/deactivate`, { method: 'POST' });
-                loadPolls();
-            };
-        });
-        document.querySelectorAll('.results-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = parseInt(btn.dataset.id, 10);
-                await openResults(id);
-            };
-        });
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = btn.dataset.id;
+            json.textContent = JSON.stringify(p, null, 2);
+            // buttons wired per row
+            row.querySelector('.activate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/activate`, { method:'POST' }); loadPolls(); };
+            row.querySelector('.deactivate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/deactivate`, { method:'POST' }); loadPolls(); };
+            row.querySelector('.results-btn').onclick = async () => { await openResults(p.id); };
+            row.querySelector('.export-btn').onclick = async () => { window.location.href = `/admin/polls/${p.id}/export.csv`; };
+            row.querySelector('.leaderboard-btn').onclick = async () => { await openResults(p.id); document.getElementById('view-leaderboard').click(); };
+            row.querySelector('.delete-btn').onclick = async () => {
                 if (!confirm('Delete this poll and all associated data?')) return;
-                try {
-                    await api(`/admin/polls/${id}`, { method: 'DELETE' });
-                    destroyCharts();
-                    document.getElementById('results-section').style.display = 'none';
-                    loadPolls();
-                } catch (err) {
-                    alert('Failed to delete poll: ' + err.message);
-                }
+                try { await api(`/admin/polls/${p.id}`, { method:'DELETE' }); destroyCharts(); document.getElementById('results-section').style.display = 'none'; loadPolls(); }
+                catch (err) { alert('Failed to delete poll: ' + err.message); }
             };
+            listDiv.appendChild(node);
         });
     } catch (err) {
         listDiv.innerHTML = `<p>Error loading polls: ${err.message}</p>`;
