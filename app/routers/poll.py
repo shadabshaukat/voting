@@ -47,6 +47,39 @@ def get_poll_by_slug(slug: str, type: Optional[str] = None, db_session: Session 
         raise HTTPException(status_code=404, detail="Active poll not found for given slug")
     return poll
 
+# Lightweight status endpoints to inform UI about closed/expired items
+@router.get("/status/by-slug")
+def get_status_by_slug(slug: str, db_session: Session = Depends(db.get_db)):
+    poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
+    if not poll:
+        return {"exists": False}
+    return {
+        "exists": True,
+        "id": poll.id,
+        "title": poll.title,
+        "poll_type": getattr(poll, "poll_type", "trivia"),
+        "is_active": bool(poll.is_active),
+        "archived": bool(getattr(poll, "archived", False)),
+    }
+
+@router.get("/status/by-title")
+def get_status_by_title(title: str, db_session: Session = Depends(db.get_db)):
+    poll = (
+        db_session.query(models.Poll)
+        .filter(func.lower(models.Poll.title) == func.lower(title))
+        .first()
+    )
+    if not poll:
+        return {"exists": False}
+    return {
+        "exists": True,
+        "id": poll.id,
+        "title": poll.title,
+        "poll_type": getattr(poll, "poll_type", "trivia"),
+        "is_active": bool(poll.is_active),
+        "archived": bool(getattr(poll, "archived", False)),
+    }
+
 
 @router.get("/{poll_id}", response_model=schemas.PollRead)
 def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):

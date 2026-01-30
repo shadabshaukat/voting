@@ -8,6 +8,24 @@ async function fetchJSON(url, options = {}) {
     return await resp.json();
 }
 
+// Status helpers for friendly closed messaging
+function typeLabel(t) {
+    if (t === 'survey') return 'Survey';
+    if (t === 'poll') return 'Poll';
+    return 'Trivia';
+}
+function renderClosedMessage(container, status) {
+    const lbl = typeLabel(status.poll_type || 'trivia');
+    const title = status.title || 'Event';
+    container.innerHTML = `<p>${lbl} closed: ${title}</p>`;
+}
+async function getStatusBySlug(slug) {
+    return await fetchJSON(`/poll/status/by-slug?slug=${encodeURIComponent(slug)}`);
+}
+async function getStatusByTitle(title) {
+    return await fetchJSON(`/poll/status/by-title?title=${encodeURIComponent(title)}`);
+}
+
 // ---------- PARTICIPANT POPUP ----------
 function showParticipantModal(pollId) {
     // Immediately remove entry modal to avoid any stray submit triggering navigation
@@ -212,7 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 container.innerHTML = '<p>No active session found for this link.</p>';
             } catch (err) {
-                container.innerHTML = '<p>No active session found for this link.</p>';
+                try {
+                    const st = await getStatusBySlug(pathSlug);
+                    if (st && st.exists && (!st.is_active || st.archived)) {
+                        renderClosedMessage(container, st);
+                    } else {
+                        container.innerHTML = '<p>No active session found for this link.</p>';
+                    }
+                } catch (_) {
+                    container.innerHTML = '<p>No active session found for this link.</p>';
+                }
             }
         })();
         return;
@@ -241,7 +268,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error(err);
             // Friendlier messaging when no active session
-            container.innerHTML = '<p>No active session found for the selected type. Please check the title/code, or try again when the session is active.</p>';
+            try {
+                const modeIsTitle = mode === 'title';
+                const status = modeIsTitle ? await getStatusByTitle(value) : await getStatusBySlug(value);
+                if (status && status.exists && (!status.is_active || status.archived)) {
+                    renderClosedMessage(container, status);
+                } else {
+                    container.innerHTML = '<p>No active session found for the selected type. Please check the title/code, or try again when the session is active.</p>';
+                }
+            } catch (_) {
+                container.innerHTML = '<p>No active session found for the selected type. Please check the title/code, or try again when the session is active.</p>';
+            }
             alert('No active session found.');
             return false;
         }
