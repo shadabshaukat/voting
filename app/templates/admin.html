@@ -67,10 +67,10 @@
                         <input type="number" id="session_minutes" min="1" placeholder="e.g., 30">
                     </div>
                     <div style="flex:1;min-width:220px;">
-                        <label>Short URL code (optional)</label>
+                        <label>Join Code (optional)</label>
                         <input type="text" name="slug" id="slug" placeholder="e.g., a1b2c">
                         <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
-                            <input type="checkbox" id="generate_url"> Generate URL code
+                            <input type="checkbox" id="generate_url"> Generate Join Code
                         </label>
                         <div id="slug_preview" style="font-size:0.9rem;color:#555;margin-top:0.25rem;display:none;"></div>
                     </div>
@@ -304,7 +304,7 @@
             const code = slugInput.value.trim();
             if (code) {
                 slugPreview.style.display = 'block';
-                slugPreview.textContent = `URL: ${location.origin}/${code}`;
+                slugPreview.textContent = `Join URL: ${location.origin}/${code}`;
             } else {
                 slugPreview.style.display = 'none';
                 slugPreview.textContent = '';
@@ -499,7 +499,7 @@ async function loadPolls() {
         polls.forEach(p => {
             const node = tpl.content.cloneNode(true);
             node.querySelector('.poll-title').textContent = `${p.title} (ID: ${p.id})`;
-            node.querySelector('.poll-meta').innerHTML = `Type: ${p.poll_type || 'trivia'} | Slug: <code>${p.slug || '(none)'}</code>`;
+            node.querySelector('.poll-meta').innerHTML = `Type: ${p.poll_type || 'trivia'} | Join Code: <code>${p.slug || '(none)'}</code>`;
             const dot = node.querySelector('.status-dot');
             dot.className = `status-dot ${p.is_active ? 'active' : 'inactive'}`;
             dot.title = p.is_active ? 'Active' : 'Inactive';
