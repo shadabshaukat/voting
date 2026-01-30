@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 import random
+import io, csv
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from .. import models, schemas, db, auth, config
 
@@ -20,6 +22,7 @@ def serialize_poll(poll: models.Poll) -> dict:
         "slug": poll.slug,
         "poll_type": getattr(poll, "poll_type", "trivia"),
         "is_active": bool(poll.is_active),
+        "archived": bool(getattr(poll, "archived", False)),
         "start_time": poll.start_time.isoformat() if poll.start_time else None,
         "end_time": poll.end_time.isoformat() if poll.end_time else None,
         "questions": [
@@ -213,6 +216,91 @@ def deactivate_poll(poll_id: int):
     finally:
         db_session.close()
 
+@router.post("/polls/{poll_id}/archive")
+def archive_poll(poll_id: int):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        poll.archived = True
+        poll.is_active = False
+        if not poll.end_time:
+            poll.end_time = datetime.utcnow()
+        db_session.commit()
+        return {"detail": "Poll archived"}
+    finally:
+        db_session.close()
+
+@router.post("/polls/{poll_id}/unarchive")
+def unarchive_poll(poll_id: int):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        poll.archived = False
+        db_session.commit()
+        return {"detail": "Poll unarchived"}
+    finally:
+        db_session.close()
+
+# Activate/Deactivate by slug (code)
+@router.post("/polls/by-slug/{slug}/activate")
+def activate_poll_by_slug(slug: str):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found for slug")
+        poll.is_active = True
+        poll.start_time = datetime.utcnow()
+        db_session.commit()
+        return {"detail": "Poll activated", "id": poll.id}
+    finally:
+        db_session.close()
+
+@router.post("/polls/by-slug/{slug}/deactivate")
+def deactivate_poll_by_slug(slug: str):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found for slug")
+        poll.is_active = False
+        poll.end_time = datetime.utcnow()
+        db_session.commit()
+        return {"detail": "Poll deactivated", "id": poll.id}
+    finally:
+        db_session.close()
+
+
+# ---------- CSV Export ----------
+@router.get("/polls/{poll_id}/export.csv")
+def export_poll_csv(poll_id: int):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        # Compute per-question summaries
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["poll_id","title","type","question_index","question_id","question_text","choice_id","choice_text","votes","percent","is_correct"]) 
+        for idx, question in enumerate(poll.questions, start=1):
+            choices = question.choices
+            # total votes for question
+            total_votes = sum(db_session.query(models.Vote).filter(models.Vote.choice_id == c.id).count() for c in choices) or 1
+            for c in choices:
+                count = db_session.query(models.Vote).filter(models.Vote.choice_id == c.id).count()
+                pct = round((count / total_votes) * 100)
+                writer.writerow([poll.id, poll.title, getattr(poll, 'poll_type', 'trivia'), idx, question.id, question.text, c.id, c.text, count, pct, bool(getattr(c, 'is_correct', False))])
+        csv_bytes = output.getvalue().encode('utf-8')
+        headers = {"Content-Disposition": f"attachment; filename=poll_{poll_id}_summary.csv"}
+        return Response(content=csv_bytes, media_type="text/csv", headers=headers)
+    finally:
+        db_session.close()
+
 
 # ---------- Results ----------
 @router.get("/polls/{poll_id}/results")
@@ -270,6 +358,38 @@ def poll_winners(poll_id: int):
             })
         winners = [r for r in results if r["is_winner"]]
         return {"poll_id": poll.id, "title": poll.title, "total_questions": total_questions, "participants": results, "winners": winners}
+    finally:
+        db_session.close()
+
+
+@router.get("/polls/{poll_id}/leaderboard")
+def trivia_leaderboard(poll_id: int):
+    """Return trivia leaderboard sorted by correct answers desc (and timestamp asc)."""
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        if getattr(poll, "poll_type", "trivia") != "trivia":
+            raise HTTPException(status_code=400, detail="Leaderboard is only applicable for trivia polls")
+        total_questions = len(poll.questions)
+        correct_choice_ids = set(c.id for q in poll.questions for c in q.choices if getattr(c, "is_correct", False))
+        participants = db_session.query(models.Participant).filter(models.Participant.poll_id == poll_id).all()
+        rows = []
+        for p in participants:
+            votes = db_session.query(models.Vote).filter(models.Vote.participant_id == p.id).all()
+            correct = sum(1 for v in votes if v.choice_id in correct_choice_ids)
+            rows.append({
+                "participant_id": p.id,
+                "name": p.name,
+                "company": p.company,
+                "correct_count": correct,
+                "total_questions": total_questions,
+                "percent": (round((correct / total_questions) * 100) if total_questions else 0)
+            })
+        # Sort by correct desc, then name asc
+        rows.sort(key=lambda r: (-r["correct_count"], (r["name"] or "")))
+        return {"poll_id": poll.id, "title": poll.title, "rows": rows}
     finally:
         db_session.close()
 

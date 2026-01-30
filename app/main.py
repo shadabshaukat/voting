@@ -60,6 +60,8 @@ def run_startup_migrations():
 
         # Poll type column for different modes: 'trivia' (has correct answers) vs 'survey'/'poll'
         conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS poll_type VARCHAR(20) DEFAULT 'trivia';"))
+        # Archived flag to preserve analytics but hide from attendee selection
+        conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;"))
 
         # Votes: ensure question_id exists and is backfilled; add unique index to prevent duplicate votes per question
         conn.execute(text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS question_id INTEGER;"))

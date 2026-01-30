@@ -12,7 +12,7 @@ router = APIRouter()
 # ---------- Public Endpoints ----------
 @router.get("/active", response_model=List[schemas.PollRead])
 def get_active_polls(type: Optional[str] = None, db_session: Session = Depends(db.get_db)):
-    q = db_session.query(models.Poll).filter(models.Poll.is_active == True)
+    q = db_session.query(models.Poll).filter(models.Poll.is_active == True, models.Poll.archived == False)
     if type:
         q = q.filter(func.lower(models.Poll.poll_type) == func.lower(type))
     return q.all()
@@ -25,6 +25,7 @@ def get_poll_by_title(title: str, type: Optional[str] = None, db_session: Sessio
         db_session.query(models.Poll)
         .filter(
             models.Poll.is_active == True,
+            models.Poll.archived == False,
             func.lower(models.Poll.title) == func.lower(title),
         )
     )
@@ -38,7 +39,7 @@ def get_poll_by_title(title: str, type: Optional[str] = None, db_session: Sessio
 
 @router.get("/by-slug", response_model=schemas.PollRead)
 def get_poll_by_slug(slug: str, type: Optional[str] = None, db_session: Session = Depends(db.get_db)):
-    q = db_session.query(models.Poll).filter(models.Poll.is_active == True, func.lower(models.Poll.slug) == func.lower(slug))
+    q = db_session.query(models.Poll).filter(models.Poll.is_active == True, models.Poll.archived == False, func.lower(models.Poll.slug) == func.lower(slug))
     if type:
         q = q.filter(func.lower(models.Poll.poll_type) == func.lower(type))
     poll = q.first()
@@ -49,7 +50,7 @@ def get_poll_by_slug(slug: str, type: Optional[str] = None, db_session: Session 
 
 @router.get("/{poll_id}", response_model=schemas.PollRead)
 def get_poll(poll_id: int, db_session: Session = Depends(db.get_db)):
-    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True).first()
+    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True, models.Poll.archived == False).first()
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found")
     return poll

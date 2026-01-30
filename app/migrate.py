@@ -10,6 +10,7 @@ def run():
     - Adds participants.company if missing
     - Adds votes.question_id (backfilled from choices) and unique index on (participant_id, question_id)
     - Adds polls.poll_type with default 'trivia'
+    - Adds polls.archived (default false)
     """
     with db.engine.begin() as conn:
         # Polls: slug column + unique index (allows multiple NULLs)
@@ -25,6 +26,8 @@ def run():
 
         # Poll type: supports 'trivia' (has correct answers) and 'survey'/'poll' (no correct answers)
         conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS poll_type VARCHAR(20) DEFAULT 'trivia';"))
+        # Archive flag to keep historical analytics while hiding from active selection
+        conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;"))
 
         # Votes: add question_id, backfill from choices, set NOT NULL, and enforce uniqueness per participant/question
         conn.execute(text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS question_id INTEGER;"))

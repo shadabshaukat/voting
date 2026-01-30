@@ -22,6 +22,7 @@ class Poll(Base):
     slug = Column(String(255), unique=True, index=True, nullable=True)
     poll_type = Column(String(20), nullable=False, default="trivia")
     is_active = Column(Boolean, default=False)
+    archived = Column(Boolean, default=False)
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))

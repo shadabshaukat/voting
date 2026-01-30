@@ -275,6 +275,8 @@
                     <label style="display:flex;align-items:center;gap:0.5rem;">
                         <input type="checkbox" id="toggle-correct"> Show correct answers
                     </label>
+                    <button id="export-csv" type="button">Export CSV</button>
+                    <button id="view-leaderboard" type="button">Leaderboard</button>
                     <button id="close-results" type="button">Close</button>
                 </div>
             </div>
@@ -284,6 +286,11 @@
 
             <!-- Charts (hidden by default until details enabled) -->
             <div id="results-charts" style="display:none;margin-top:0.75rem;gap:1rem;"></div>
+
+            <div id="leaderboard-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
+                <h3 style="margin:0 0 0.5rem 0;">Leaderboard (Trivia)</h3>
+                <ol id="leaderboard-list" style="margin:0;padding-left:1.25rem;"></ol>
+            </div>
 
             <div id="winners-panel" style="margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -407,6 +414,8 @@ async function loadPolls() {
             div.style.marginBottom = '0.5rem';
             div.innerHTML = `
                 <strong>${p.title}</strong> (ID: ${p.id})<br>
+                Type: ${p.poll_type || 'trivia'}<br>
+                Slug: <code>${p.slug || '(none)'}</code><br>
                 Active: ${p.is_active}<br>
                 <button data-id="${p.id}" class="activate-btn">Activate</button>
                 <button data-id="${p.id}" class="deactivate-btn">Deactivate</button>
@@ -501,6 +510,7 @@ async function openResults(pollId) {
     if (toggleCorrectLabel) toggleCorrectLabel.style.display = isTrivia ? 'flex' : 'none';
     document.getElementById('winners-panel').style.display = isTrivia ? 'block' : 'none';
     document.getElementById('nonwinners-panel').style.display = isTrivia ? 'block' : 'none';
+    document.getElementById('leaderboard-panel').style.display = isTrivia ? 'block' : 'none';
 
     // Build charts (hidden by default until details enabled)
     destroyCharts();
@@ -576,6 +586,37 @@ async function openResults(pollId) {
                 }
             }
         });
+
+// Export CSV
+const exportBtn = document.getElementById('export-csv');
+if (exportBtn) exportBtn.addEventListener('click', async () => {
+    if (!currentPollId) return;
+    const url = `/admin/polls/${currentPollId}/export.csv`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `poll_${currentPollId}_summary.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+});
+
+// Leaderboard
+const lbBtn = document.getElementById('view-leaderboard');
+if (lbBtn) lbBtn.addEventListener('click', async () => {
+    if (!currentPollId) return;
+    try {
+        const res = await api(`/admin/polls/${currentPollId}/leaderboard`);
+        const list = document.getElementById('leaderboard-list');
+        list.innerHTML = '';
+        (res.rows || []).forEach(r => {
+            const li = document.createElement('li');
+            li.textContent = `${r.name || 'Anonymous'}${r.company ? ' (' + r.company + ')' : ''} - ${r.correct_count}/${r.total_questions} (${r.percent}%)`;
+            list.appendChild(li);
+        });
+    } catch (err) {
+        alert('Failed to load leaderboard: ' + err.message);
+    }
+});
         charts.push({ chart, isCorrects });
     });
 
