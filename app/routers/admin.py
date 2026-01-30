@@ -6,7 +6,7 @@ import random
 import io, csv
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from .. import models, schemas, db, auth, config
 
@@ -151,15 +151,43 @@ async def create_poll(request: Request):
 
 @router.delete("/polls/{poll_id}")
 def delete_poll(poll_id: int):
-    """Delete a poll and all related data (questions, choices, participants, votes).
-    Cascades are configured on relationships, so ORM delete will remove dependents."""
+    """Robustly delete a poll and all related data via SQL (votes -> participants/choices -> questions -> poll)."""
     db_session = db.SessionLocal()
     try:
-        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
-        if not poll:
+        exists = db_session.query(models.Poll.id).filter(models.Poll.id == poll_id).first()
+        if not exists:
             raise HTTPException(status_code=404, detail="Poll not found")
-        db_session.delete(poll)
-        db_session.commit()
+        with db.engine.begin() as conn:
+            # Delete votes linked via participants for this poll
+            conn.execute(text(
+                """
+                DELETE FROM votes
+                WHERE participant_id IN (
+                    SELECT id FROM participants WHERE poll_id = :pid
+                )
+                """
+            ), {"pid": poll_id})
+            # Delete votes linked via choices for this poll
+            conn.execute(text(
+                """
+                DELETE FROM votes v
+                USING choices c, questions q
+                WHERE v.choice_id = c.id AND c.question_id = q.id AND q.poll_id = :pid
+                """
+            ), {"pid": poll_id})
+            # Delete participants for this poll
+            conn.execute(text("DELETE FROM participants WHERE poll_id = :pid"), {"pid": poll_id})
+            # Delete choices for this poll (via questions)
+            conn.execute(text(
+                """
+                DELETE FROM choices
+                WHERE question_id IN (SELECT id FROM questions WHERE poll_id = :pid)
+                """
+            ), {"pid": poll_id})
+            # Delete questions for this poll
+            conn.execute(text("DELETE FROM questions WHERE poll_id = :pid"), {"pid": poll_id})
+            # Finally delete the poll
+            conn.execute(text("DELETE FROM polls WHERE id = :pid"), {"pid": poll_id})
         return {"detail": "Poll deleted"}
     finally:
         db_session.close()
