@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
@@ -15,6 +15,13 @@ router = APIRouter()
 # Manual serializer to avoid Pydantic for responses
 
 def serialize_poll(poll: models.Poll) -> dict:
+    now = datetime.now(timezone.utc)
+    expired = False
+    try:
+        if poll.end_time is not None:
+            expired = (poll.end_time <= now)
+    except Exception:
+        expired = False
     return {
         "id": poll.id,
         "title": poll.title,
@@ -23,6 +30,7 @@ def serialize_poll(poll: models.Poll) -> dict:
         "poll_type": getattr(poll, "poll_type", "trivia"),
         "is_active": bool(poll.is_active),
         "archived": bool(getattr(poll, "archived", False)),
+        "expired": bool(expired),
         "start_time": poll.start_time.isoformat() if poll.start_time else None,
         "end_time": poll.end_time.isoformat() if poll.end_time else None,
         "questions": [

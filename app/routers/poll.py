@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime, timezone
 
 from .. import models, schemas, db
 
@@ -53,6 +54,13 @@ def get_status_by_slug(slug: str, db_session: Session = Depends(db.get_db)):
     poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
     if not poll:
         return {"exists": False}
+    now = datetime.now(timezone.utc)
+    expired = False
+    try:
+        if poll.end_time is not None:
+            expired = (poll.end_time <= now)
+    except Exception:
+        expired = False
     return {
         "exists": True,
         "id": poll.id,
@@ -60,6 +68,7 @@ def get_status_by_slug(slug: str, db_session: Session = Depends(db.get_db)):
         "poll_type": getattr(poll, "poll_type", "trivia"),
         "is_active": bool(poll.is_active),
         "archived": bool(getattr(poll, "archived", False)),
+        "expired": bool(expired),
     }
 
 @router.get("/status/by-title")
@@ -71,6 +80,13 @@ def get_status_by_title(title: str, db_session: Session = Depends(db.get_db)):
     )
     if not poll:
         return {"exists": False}
+    now = datetime.now(timezone.utc)
+    expired = False
+    try:
+        if poll.end_time is not None:
+            expired = (poll.end_time <= now)
+    except Exception:
+        expired = False
     return {
         "exists": True,
         "id": poll.id,
@@ -78,6 +94,7 @@ def get_status_by_title(title: str, db_session: Session = Depends(db.get_db)):
         "poll_type": getattr(poll, "poll_type", "trivia"),
         "is_active": bool(poll.is_active),
         "archived": bool(getattr(poll, "archived", False)),
+        "expired": bool(expired),
     }
 
 

@@ -328,6 +328,7 @@
                         <strong class="poll-title"></strong>
                         <span class="poll-meta"></span>
                         <span class="status-dot"></span>
+                        <span class="status-label" style="margin-left:0.35rem;font-size:0.9rem;color:#555;"></span>
                     </div>
                     <div>
                         <button class="toggle-actions">Toggle Actions</button>
@@ -501,8 +502,11 @@ async function loadPolls() {
             node.querySelector('.poll-title').textContent = `${p.title} (ID: ${p.id})`;
             node.querySelector('.poll-meta').innerHTML = `Type: ${p.poll_type || 'trivia'} | Join Code: <code>${p.slug || '(none)'}</code>`;
             const dot = node.querySelector('.status-dot');
-            dot.className = `status-dot ${p.is_active ? 'active' : 'inactive'}`;
-            dot.title = p.is_active ? 'Active' : 'Inactive';
+            const stateClass = p.is_active ? 'active' : (p.expired ? 'expired' : 'inactive');
+            dot.className = `status-dot ${stateClass}`;
+            dot.title = p.is_active ? 'Active' : (p.expired ? 'Expired' : 'Inactive');
+            const labelEl = node.querySelector('.status-label');
+            if (labelEl) labelEl.textContent = p.is_active ? 'Active' : (p.expired ? 'Expired' : 'Inactive');
             // actions
             const row = node.querySelector('.poll-row');
             const actions = node.querySelector('.actions');
