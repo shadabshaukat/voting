@@ -32,6 +32,9 @@
     </section>
 
     <section id="dashboard-section" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+            <button id="logout-btn" type="button">Logout</button>
+        </div>
         <h2>Create New Event</h2>
         <form id="create-poll-form" style="border:1px solid #ddd;padding:1rem;border-radius:8px;">
             <fieldset style="margin-bottom:1rem;">
@@ -176,6 +179,15 @@
                     if (chk) chk.checked = false;
                 }
             });
+
+// Logout
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) logoutBtn.onclick = () => {
+    try { localStorage.removeItem('adminToken'); } catch (_) {}
+    token = null;
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('login-section').style.display = 'block';
+};
         }
 
         function createQuestionBlock() {
@@ -330,7 +342,7 @@
                         <span class="status-dot"></span>
                         <span class="status-label" style="margin-left:0.35rem;font-size:0.9rem;color:#555;"></span>
                     </div>
-                    <div>
+                    <div class="row-actions">
                         <button class="toggle-actions">Toggle Actions</button>
                         <button class="toggle-json">Show details</button>
                     </div>
@@ -405,6 +417,19 @@ let token = null;
 let currentPollId = null;
 let charts = []; // { chart: Chart, isCorrects: boolean[] }
 
+// Auto-restore admin session on refresh
+(function restoreAdmin(){
+    try {
+        const saved = localStorage.getItem('adminToken');
+        if (saved) {
+            token = saved;
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            loadPolls();
+        }
+    } catch (_) {}
+})();
+
 // Helper
 async function api(path, opts = {}) {
     const headers = opts.headers ? { ...opts.headers } : {};
@@ -432,6 +457,7 @@ document.getElementById('login-form').onsubmit = async (e) => {
             headers: { 'Content-Type': 'application/json' }
         });
         token = res.access_token;
+        try { localStorage.setItem('adminToken', token); } catch (_) {}
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('dashboard-section').style.display = 'block';
         loadPolls();
@@ -502,11 +528,11 @@ async function loadPolls() {
             node.querySelector('.poll-title').textContent = `${p.title} (ID: ${p.id})`;
             node.querySelector('.poll-meta').innerHTML = `Type: ${p.poll_type || 'trivia'} | Join Code: <code>${p.slug || '(none)'}</code>`;
             const dot = node.querySelector('.status-dot');
-            const stateClass = p.is_active ? 'active' : (p.expired ? 'expired' : 'inactive');
+            const stateClass = p.expired ? 'expired' : (p.is_active ? 'active' : 'inactive');
             dot.className = `status-dot ${stateClass}`;
-            dot.title = p.is_active ? 'Active' : (p.expired ? 'Expired' : 'Inactive');
+            dot.title = p.expired ? 'Expired' : (p.is_active ? 'Active' : 'Inactive');
             const labelEl = node.querySelector('.status-label');
-            if (labelEl) labelEl.textContent = p.is_active ? 'Active' : (p.expired ? 'Expired' : 'Inactive');
+            if (labelEl) labelEl.textContent = p.expired ? 'Expired' : (p.is_active ? 'Active' : 'Inactive');
             // actions
             const row = node.querySelector('.poll-row');
             const actions = node.querySelector('.actions');

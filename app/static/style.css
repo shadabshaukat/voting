@@ -98,3 +98,13 @@ label.option-line .option-text {
 
 /* Clock icon next to timer text */
 .clock { margin-right: 0.35rem; }
+
+/* Admin row actions alignment */
+.row-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.row-actions button {
+    padding: 0.4rem 0.8rem;
+}
