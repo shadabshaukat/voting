@@ -37,10 +37,10 @@ async function startPoll(pollId, participant) {
     const form = document.createElement('form');
     form.id = 'vote-form';
 
-    pollData.questions.forEach((q) => {
+    pollData.questions.forEach((q, idx) => {
         const qDiv = document.createElement('div');
         qDiv.className = 'question';
-        qDiv.innerHTML = `<p><strong>${q.text}</strong></p>`;
+        qDiv.innerHTML = `<p><strong>${idx + 1}. ${q.text}</strong></p>`;
         q.choices.forEach((c) => {
             const label = document.createElement('label');
             label.className = 'option-line';
@@ -102,52 +102,63 @@ async function startPoll(pollId, participant) {
     };
 }
 
-// ---------- INITIAL LOAD WITH POLL NAME MODAL ----------
+// ---------- INITIAL LOAD WITH ENTRY MODAL (type + join by) ----------
+async function findPollIdByEntry(type, mode, value) {
+    if (mode === 'active') {
+        const list = await fetchJSON(`/poll/active?type=${encodeURIComponent(type)}`);
+        if (!list || list.length === 0) throw new Error('No active items for selected type');
+        return list[0].id;
+    }
+    if (mode === 'title') {
+        const res = await fetchJSON(`/poll/by-title?title=${encodeURIComponent(value)}&type=${encodeURIComponent(type)}`);
+        return res.id;
+    }
+    if (mode === 'slug') {
+        const res = await fetchJSON(`/poll/by-slug?slug=${encodeURIComponent(value)}&type=${encodeURIComponent(type)}`);
+        return res.id;
+    }
+    throw new Error('Invalid mode');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('pollname-modal');
-    const form = document.getElementById('pollname-form');
-    const useActiveBtn = document.getElementById('use-active-btn');
     const container = document.getElementById('poll-container');
+    const modal = document.getElementById('entry-modal');
+    const form = document.getElementById('entry-form');
+    const typeSelect = document.getElementById('entry-type');
+    const modeSelect = document.getElementById('entry-mode');
+    const valueWrap = document.getElementById('entry-value-wrap');
+    const valueInput = document.getElementById('entry-value');
+    const valueLabel = document.getElementById('entry-value-label');
 
-    function proceedWithPoll(pollId) {
-        modal.style.display = 'none';
-        showParticipantModal(pollId);
+    function updateValueVisibility() {
+        const mode = modeSelect.value;
+        valueWrap.style.display = (mode === 'active') ? 'none' : 'block';
+        valueLabel.textContent = mode === 'title' ? 'Title' : 'Code';
+        valueInput.placeholder = mode === 'title' ? 'Enter title' : 'Enter code';
     }
 
-    async function handleUseActive() {
-        try {
-            const activePolls = await fetchJSON('/poll/active');
-            if (!activePolls || activePolls.length === 0) {
-                alert('No active polls at the moment.');
-                container.innerHTML = '<p>No active polls at the moment.</p>';
-                return;
-            }
-            proceedWithPoll(activePolls[0].id);
-        } catch (err) {
-            console.error(err);
-            alert('Error loading active polls: ' + err.message);
-            container.innerHTML = '<p>Error loading poll.</p>';
-        }
-    }
+    modeSelect.addEventListener('change', updateValueVisibility);
+    updateValueVisibility();
 
-    async function handleLoadByTitle(e) {
+    if (modal) modal.style.display = 'block';
+
+    form.onsubmit = async (e) => {
         e.preventDefault();
-        const title = (form.elements['pollname'].value || '').trim();
-        if (!title) {
-            alert('Please enter a poll name or click "Use Active Poll".');
+        const type = typeSelect.value;
+        const mode = modeSelect.value;
+        const value = (valueInput.value || '').trim();
+        if (mode !== 'active' && !value) {
+            alert('Please provide a value for the selected join method.');
             return;
         }
         try {
-            const poll = await fetchJSON(`/poll/by-title?title=${encodeURIComponent(title)}`);
-            proceedWithPoll(poll.id);
+            const pollId = await findPollIdByEntry(type, mode, value);
+            modal.style.display = 'none';
+            showParticipantModal(pollId);
         } catch (err) {
             console.error(err);
-            alert('Could not find an active poll with that name. Please check the name or use the active poll option.');
+            alert('Unable to find an active item: ' + err.message);
+            container.innerHTML = '<p>No active items found.</p>';
         }
-    }
-
-    // Show modal and bind events
-    if (modal) modal.style.display = 'block';
-    if (useActiveBtn) useActiveBtn.onclick = handleUseActive;
-    if (form) form.onsubmit = handleLoadByTitle;
+    };
 });

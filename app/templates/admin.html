@@ -63,6 +63,19 @@
             </fieldset>
 
             <fieldset>
+                <legend>Templates</legend>
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                    <select id="template-select">
+                        <option value="">-- Choose a template (optional) --</option>
+                        <option value="seminar_survey">Seminar Feedback (Survey)</option>
+                        <option value="feature_poll">Feature Vote (Poll)</option>
+                        <option value="pg_trivia">PostgreSQL Trivia (Trivia)</option>
+                    </select>
+                    <button type="button" id="apply-template">Apply Template</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
                 <legend>Questions</legend>
                 <div id="questions-container"></div>
                 <button type="button" id="add-question-btn">+ Add Question</button>
@@ -76,6 +89,50 @@
         <script>
         // Dynamic question/choice builder (clean layout with is_correct checkbox)
         let questionCount = 0;
+
+        const TEMPLATES = {
+            seminar_survey: {
+                poll_type: 'survey',
+                title: 'Seminar Feedback',
+                description: 'Help us improve by sharing your feedback.',
+                questions: [
+                    { text: 'Overall satisfaction with the session', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
+                    { text: 'Content relevance to your role', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
+                    { text: 'Speaker effectiveness', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
+                    { text: 'Likelihood to recommend this session', choices: ['Very Unlikely','Unlikely','Neutral','Likely','Very Likely'] },
+                ]
+            },
+            feature_poll: {
+                poll_type: 'poll',
+                title: 'Feature Prioritization',
+                description: 'Vote for the next feature to prioritize.',
+                questions: [
+                    { text: 'Which feature should we prioritize next?', choices: ['Performance','Security','Usability','Analytics'] }
+                ]
+            },
+            pg_trivia: {
+                poll_type: 'trivia',
+                title: 'PostgreSQL Trivia',
+                description: 'Test your PostgreSQL knowledge!',
+                questions: [
+                    { text: 'Which command creates an index in PostgreSQL?', choices: [
+                        { text: 'CREATE INDEX ...', is_correct: true },
+                        { text: 'MAKE INDEX ...', is_correct: false },
+                        { text: 'NEW INDEX ...', is_correct: false }
+                    ]},
+                    { text: 'Which data type stores JSON in PostgreSQL?', choices: [
+                        { text: 'JSONB', is_correct: true },
+                        { text: 'TEXTARRAY', is_correct: false },
+                        { text: 'BLOB', is_correct: false }
+                    ]},
+                    { text: 'Which feature supports horizontal scaling across nodes?', choices: [
+                        { text: 'Foreign Data Wrapper (FDW)', is_correct: true },
+                        { text: 'VACUUM FULL', is_correct: false },
+                        { text: 'CHECKPOINT', is_correct: false }
+                    ]}
+                ]
+            }
+        };
 
         function createChoiceInput(qIdx) {
             const choiceDiv = document.createElement('div');
@@ -140,6 +197,64 @@
         document.getElementById('add-question-btn').onclick = () => {
             const container = document.getElementById('questions-container');
             container.appendChild(createQuestionBlock());
+            updateCorrectFlagsVisibility();
+        };
+
+        function clearQuestions() {
+            document.getElementById('questions-container').innerHTML = '';
+            questionCount = 0;
+        }
+
+        function buildQuestionBlockFromData(q) {
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question-block';
+            qDiv.style.border = '1px dashed #ccc';
+            qDiv.style.padding = '0.75rem';
+            qDiv.style.marginBottom = '0.75rem';
+            const qIdx = questionCount++;
+            qDiv.innerHTML = `
+                <label>Question</label>
+                <input type="text" name="question-${qIdx}" placeholder="Type the question..." required value="${q.text || ''}">
+                <div class="choices-container" id="choices-${qIdx}" style="margin-top:0.5rem;"></div>
+                <div style="margin-top:0.5rem;display:flex;gap:0.5rem;">
+                    <button type="button" class="add-choice-btn">+ Add Choice</button>
+                    <button type="button" class="remove-question-btn">Remove Question</button>
+                </div>
+            `;
+            const choicesDiv = qDiv.querySelector(`#choices-${qIdx}`);
+            if (Array.isArray(q.choices)) {
+                q.choices.forEach(c => {
+                    const choiceDiv = createChoiceInput(qIdx);
+                    const textInput = choiceDiv.querySelector('input[type="text"]');
+                    const chk = choiceDiv.querySelector('input[type="checkbox"]');
+                    textInput.value = (typeof c === 'string') ? c : (c.text || '');
+                    if (chk && typeof c === 'object' && c.is_correct) chk.checked = true;
+                    choicesDiv.appendChild(choiceDiv);
+                });
+            } else {
+                choicesDiv.appendChild(createChoiceInput(qIdx));
+                choicesDiv.appendChild(createChoiceInput(qIdx));
+            }
+            qDiv.querySelector('.add-choice-btn').onclick = () => choicesDiv.appendChild(createChoiceInput(qIdx));
+            qDiv.querySelector('.remove-question-btn').onclick = () => qDiv.remove();
+            return qDiv;
+        }
+
+        document.getElementById('apply-template').onclick = () => {
+            const key = document.getElementById('template-select').value;
+            if (!key) return;
+            const t = TEMPLATES[key];
+            if (!t) return;
+            // set top-level fields
+            document.querySelector('input[name="title"]').value = t.title || '';
+            document.querySelector('textarea[name="description"]').value = t.description || '';
+            const typeSel = document.getElementById('poll_type');
+            if (typeSel) typeSel.value = t.poll_type || 'trivia';
+            clearQuestions();
+            (t.questions || []).forEach(q => {
+                const qEl = buildQuestionBlockFromData(q);
+                document.getElementById('questions-container').appendChild(qEl);
+            });
             updateCorrectFlagsVisibility();
         };
 
@@ -403,12 +518,29 @@ async function openResults(pollId) {
         card.appendChild(canvas);
         chartsContainer.appendChild(card);
 
-        const labels = q.choices.map(c => c.choice_text);
-        const data = q.choices.map(c => c.votes);
-        const isCorrects = q.choices.map(c => !!c.is_correct);
-        const colors = computeColors(isCorrects, document.getElementById('toggle-correct').checked);
+        let labels, data, bg, border, isCorrects;
+        const highlightCorrect = document.getElementById('toggle-correct').checked;
+        const choiceLabels = q.choices.map(c => c.choice_text);
+        const choiceVotes = q.choices.map(c => c.votes);
+        const totalVotes = choiceVotes.reduce((a,b)=>a+b,0) || 1;
 
-        const total = data.reduce((a,b)=>a+b,0) || 1;
+        if (isTrivia) {
+            const correctVotes = q.choices.filter(c => !!c.is_correct).reduce((a,c)=>a+c.votes,0);
+            const incorrectVotes = totalVotes - correctVotes;
+            labels = ['Correct', 'Incorrect'];
+            data = [correctVotes, incorrectVotes];
+            bg = ['#2e7d32', '#d0d0d0'];
+            border = ['#2e7d32', '#8a8a8a'];
+            isCorrects = [true, false];
+        } else {
+            labels = choiceLabels;
+            data = choiceVotes;
+            isCorrects = q.choices.map(c => !!c.is_correct);
+            const colors = computeColors(isCorrects, highlightCorrect);
+            bg = colors.bg;
+            border = colors.border;
+        }
+
         const chart = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: {
@@ -416,8 +548,8 @@ async function openResults(pollId) {
                 datasets: [{
                     label: 'Votes',
                     data,
-                    backgroundColor: colors.bg,
-                    borderColor: colors.border,
+                    backgroundColor: bg,
+                    borderColor: border,
                     borderWidth: 1
                 }]
             },
@@ -431,6 +563,7 @@ async function openResults(pollId) {
                         callbacks: {
                             label: (ctx) => {
                                 const value = ctx.parsed;
+                                const total = data.reduce((a,b)=>a+b,0) || 1;
                                 const pct = ((value / total) * 100).toFixed(0);
                                 return `${ctx.label}: ${value} (${pct}%)`;
                             }

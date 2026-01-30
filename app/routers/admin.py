@@ -135,7 +135,7 @@ async def create_poll(request: Request):
                 c_text = (c.get("text") or "").strip()
                 if not c_text:
                     continue
-                is_correct = bool(c.get("is_correct", False)) if poll_type == "trivia" else False
+                is_correct = bool(c.get("is_correct", False)) if poll_type in ("trivia", "poll") else False
                 choice = models.Choice(question_id=question.id, text=c_text, is_correct=is_correct)
                 db_session.add(choice)
 

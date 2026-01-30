@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -11,24 +11,39 @@ router = APIRouter()
 
 # ---------- Public Endpoints ----------
 @router.get("/active", response_model=List[schemas.PollRead])
-def get_active_polls(db_session: Session = Depends(db.get_db)):
-    polls = db_session.query(models.Poll).filter(models.Poll.is_active == True).all()
-    return polls
+def get_active_polls(type: Optional[str] = None, db_session: Session = Depends(db.get_db)):
+    q = db_session.query(models.Poll).filter(models.Poll.is_active == True)
+    if type:
+        q = q.filter(func.lower(models.Poll.poll_type) == func.lower(type))
+    return q.all()
 
 
 # Important: declare the static route before the dynamic one to avoid 422 due to path matching
 @router.get("/by-title", response_model=schemas.PollRead)
-def get_poll_by_title(title: str, db_session: Session = Depends(db.get_db)):
-    poll = (
+def get_poll_by_title(title: str, type: Optional[str] = None, db_session: Session = Depends(db.get_db)):
+    q = (
         db_session.query(models.Poll)
         .filter(
             models.Poll.is_active == True,
             func.lower(models.Poll.title) == func.lower(title),
         )
-        .first()
     )
+    if type:
+        q = q.filter(func.lower(models.Poll.poll_type) == func.lower(type))
+    poll = q.first()
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found for given title")
+    return poll
+
+
+@router.get("/by-slug", response_model=schemas.PollRead)
+def get_poll_by_slug(slug: str, type: Optional[str] = None, db_session: Session = Depends(db.get_db)):
+    q = db_session.query(models.Poll).filter(models.Poll.is_active == True, func.lower(models.Poll.slug) == func.lower(slug))
+    if type:
+        q = q.filter(func.lower(models.Poll.poll_type) == func.lower(type))
+    poll = q.first()
+    if not poll:
+        raise HTTPException(status_code=404, detail="Active poll not found for given slug")
     return poll
 
 

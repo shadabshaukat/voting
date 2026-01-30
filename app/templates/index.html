@@ -19,16 +19,35 @@
     <!-- Poll content will be injected by main.js -->
 </div>
 
-<!-- Poll Name Modal -->
-<div id="pollname-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
-    <div style="background:#fff;padding:2rem;margin:10% auto;width:90%;max-width:420px;border-radius:8px;">
-        <h2>Enter Poll Name</h2>
-        <form id="pollname-form">
-            <label>Poll Name (optional)</label>
-            <input type="text" name="pollname" placeholder="e.g., Livelab 2026">
+<!-- Entry Modal: Type + Code/Title -->
+<div id="entry-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
+    <div style="background:#fff;padding:2rem;margin:8% auto;width:90%;max-width:520px;border-radius:8px;">
+        <h2>Join a Survey / Poll / Trivia</h2>
+        <form id="entry-form">
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:180px;">
+                    <label>Type</label>
+                    <select name="type" id="entry-type">
+                        <option value="trivia" selected>Trivia</option>
+                        <option value="survey">Survey</option>
+                        <option value="poll">Poll</option>
+                    </select>
+                </div>
+                <div style="flex:2;min-width:220px;">
+                    <label>Join by</label>
+                    <select id="entry-mode" name="mode">
+                        <option value="active">Use Active</option>
+                        <option value="title">Title</option>
+                        <option value="slug">Code</option>
+                    </select>
+                </div>
+            </div>
+            <div id="entry-value-wrap" style="margin-top:0.5rem;display:none;">
+                <label id="entry-value-label">Title</label>
+                <input type="text" id="entry-value" placeholder="Enter title or code">
+            </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;">
-                <button type="button" id="use-active-btn">Use Active Poll</button>
-                <button type="submit">Load Poll</button>
+                <button type="submit">Continue</button>
             </div>
         </form>
     </div>
@@ -39,11 +58,11 @@
     <div style="background:#fff;padding:2rem;margin:10% auto;width:90%;max-width:400px;border-radius:8px;">
         <h2>Enter your details</h2>
         <form id="participant-form">
-            <label>Full Name (required)</label>
+            <label>Name (required)</label>
             <input type="text" name="name" required>
-            <label>Company (required)</label>
+            <label>Company (optional)</label>
             <input type="text" name="company">
-            <button type="submit">Start Poll</button>
+            <button type="submit">Start</button>
         </form>
     </div>
 </div>
