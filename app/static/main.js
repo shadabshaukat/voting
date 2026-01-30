@@ -41,6 +41,12 @@ async function startPoll(pollId, participant) {
     const pollData = await fetchJSON(`/poll/${pollId}`);
     const container = document.getElementById('poll-container');
     container.innerHTML = `<h2>${pollData.title}</h2><p>${pollData.description || ''}</p>`;
+    // Hard-hide and remove entry modal to prevent reappearance
+    const entry = document.getElementById('entry-modal');
+    if (entry) {
+        entry.style.display = 'none';
+        if (entry.parentNode) entry.parentNode.removeChild(entry);
+    }
 
     const form = document.createElement('form');
     form.id = 'vote-form';
