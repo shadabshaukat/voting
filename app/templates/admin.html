@@ -114,10 +114,10 @@
                 title: 'Seminar Feedback',
                 description: 'Help us improve by sharing your feedback.',
                 questions: [
-                    { text: 'Overall satisfaction with the session', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
-                    { text: 'Content relevance to your role', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
-                    { text: 'Speaker effectiveness', choices: ['Strongly Disagree','Disagree','Neutral','Agree','Strongly Agree'] },
-                    { text: 'Likelihood to recommend this session', choices: ['Very Unlikely','Unlikely','Neutral','Likely','Very Likely'] },
+                    { text: 'Overall satisfaction with the session', choices: ['Strongly Agree','Agree','Neutral','Disagree','Strongly Disagree'] },
+                    { text: 'Content relevance to your role', choices: ['Strongly Agree','Agree','Neutral','Disagree','Strongly Disagree'] },
+                    { text: 'Speaker effectiveness', choices: ['Strongly Agree','Agree','Neutral','Disagree','Strongly Disagree'] },
+                    { text: 'Likelihood to recommend this session', choices: ['Strongly Agree','Agree','Neutral','Disagree','Strongly Disagree'] },
                 ]
             },
             feature_poll: {
@@ -146,6 +146,31 @@
                     { text: 'Which feature supports horizontal scaling across nodes?', choices: [
                         { text: 'Foreign Data Wrapper (FDW)', is_correct: true },
                         { text: 'VACUUM FULL', is_correct: false },
+                        { text: 'CHECKPOINT', is_correct: false }
+                    ]},
+                    { text: 'Which index method is best for full-text search on JSONB/text?', choices: [
+                        { text: 'GIN', is_correct: true },
+                        { text: 'B-tree', is_correct: false },
+                        { text: 'Hash', is_correct: false }
+                    ]},
+                    { text: 'What isolation level does PostgreSQL use by default?', choices: [
+                        { text: 'Read Committed', is_correct: true },
+                        { text: 'Repeatable Read', is_correct: false },
+                        { text: 'Serializable', is_correct: false }
+                    ]},
+                    { text: 'Which command creates an index without blocking writes?', choices: [
+                        { text: 'CREATE INDEX CONCURRENTLY', is_correct: true },
+                        { text: 'CREATE INDEX', is_correct: false },
+                        { text: 'REINDEX', is_correct: false }
+                    ]},
+                    { text: 'Which feature allows deferring foreign key checks until commit?', choices: [
+                        { text: 'DEFERRABLE INITIALLY DEFERRED', is_correct: true },
+                        { text: 'NOT VALID', is_correct: false },
+                        { text: 'ON DELETE SET NULL', is_correct: false }
+                    ]},
+                    { text: 'Which statement can be inlined and optimized in PostgreSQL 12+ when possible?', choices: [
+                        { text: 'WITH (CTE)', is_correct: true },
+                        { text: 'VACUUM FREEZE', is_correct: false },
                         { text: 'CHECKPOINT', is_correct: false }
                     ]}
                 ]
@@ -348,9 +373,10 @@ if (logoutBtn) logoutBtn.onclick = () => {
                     </div>
                 </div>
                 <div class="actions collapsible">
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.5rem 0;">
+                    <div class="actions-bar toolbar-nowrap">
                         <button class="activate-btn">Activate</button>
                         <button class="deactivate-btn">Deactivate</button>
+                        <button class="reactivate-btn">Reactivate</button>
                         <button class="results-btn">View Results</button>
                         <button class="export-btn">Export CSV</button>
                         <button class="leaderboard-btn">Leaderboard</button>
@@ -364,15 +390,29 @@ if (logoutBtn) logoutBtn.onclick = () => {
             </div>
         </template>
 
+        <!-- Reactivate Modal -->
+        <div id="reactivate-modal" class="modal-overlay">
+            <div class="modal-card">
+                <h3 style="margin:0 0 0.5rem 0;">Reactivate Event</h3>
+                <p style="margin:0 0 0.5rem 0;color:#555;">Set how long to keep this event active from now.</p>
+                <label>Duration (minutes)</label>
+                <input type="number" id="reactivate-minutes" min="1" max="480" value="5">
+                <div class="modal-actions">
+                    <button id="reactivate-confirm" type="button">Confirm</button>
+                    <button id="reactivate-cancel" type="button" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Results & Winners Panel (simple by default) -->
         <section id="results-section" style="display:none;margin-top:1rem;border-top:1px solid #ddd;padding-top:1rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
                 <h2 style="margin:0;">Results: <span id="results-title"></span></h2>
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <label style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="toolbar toolbar-nowrap">
+                    <label class="checkbox-inline">
                         <input type="checkbox" id="toggle-details"> Show details
                     </label>
-                    <label style="display:flex;align-items:center;gap:0.5rem;">
+                    <label class="checkbox-inline">
                         <input type="checkbox" id="toggle-correct"> Show correct answers
                     </label>
                     <button id="export-csv" type="button">Export CSV</button>
@@ -405,7 +445,7 @@ if (logoutBtn) logoutBtn.onclick = () => {
             </div>
 
             <div id="nonwinners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
-                <h3 style="margin:0;">Participants who didnt answer all correctly</h3>
+                <h3 style="margin:0;">Participants who didn't answer all correctly</h3>
                 <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
             </div>
         </section>
@@ -548,6 +588,10 @@ async function loadPolls() {
             // buttons wired per row
             row.querySelector('.activate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/activate`, { method:'POST' }); loadPolls(); };
             row.querySelector('.deactivate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/deactivate`, { method:'POST' }); loadPolls(); };
+            const reactivateBtn = row.querySelector('.reactivate-btn');
+            if (reactivateBtn) {
+                reactivateBtn.onclick = () => openReactivateModal(p.id);
+            }
             row.querySelector('.results-btn').onclick = async () => {
                 const rowResults = row.querySelector('.row-results');
                 const body = row.querySelector('.row-results-body');
@@ -860,7 +904,7 @@ async function loadWinners() {
         if (nonwinners.length > 0) {
             nonwinners.forEach(n => {
                 const li = document.createElement('li');
-                li.textContent = `${n.name || 'Anonymous'}${n.company ? ' (' + n.company + ')' : ''}  ${n.correct_count}/${n.total_questions} correct`;
+                li.textContent = `${n.name || 'Anonymous'}${n.company ? ' (' + n.company + ')' : ''} - ${n.correct_count}/${n.total_questions} correct`;
                 nonList.appendChild(li);
             });
         } else {
@@ -888,6 +932,45 @@ document.getElementById('pick-winner').addEventListener('click', async () => {
         pickedEl.textContent = `No winner selected: ${err.message}`;
     }
 });
+
+// Reactivate modal logic
+let reactivateTargetId = null;
+function openReactivateModal(pollId) {
+    reactivateTargetId = pollId;
+    const m = document.getElementById('reactivate-modal');
+    const input = document.getElementById('reactivate-minutes');
+    if (input) input.value = '5';
+    if (m) m.classList.add('open');
+}
+function closeReactivateModal() {
+    const m = document.getElementById('reactivate-modal');
+    if (m) m.classList.remove('open');
+    reactivateTargetId = null;
+}
+(function bindReactivateModal(){
+    const cancelBtn = document.getElementById('reactivate-cancel');
+    const confirmBtn = document.getElementById('reactivate-confirm');
+    if (cancelBtn) cancelBtn.onclick = closeReactivateModal;
+    if (confirmBtn) confirmBtn.onclick = async () => {
+        const input = document.getElementById('reactivate-minutes');
+        let minutes = parseInt(input?.value || '5', 10);
+        if (!Number.isFinite(minutes) || minutes < 1) minutes = 1;
+        if (minutes > 480) minutes = 480;
+        if (!reactivateTargetId) return closeReactivateModal();
+        try {
+            await api(`/admin/polls/${reactivateTargetId}/reactivate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ minutes })
+            });
+            closeReactivateModal();
+            loadPolls();
+        } catch (err) {
+            alert('Failed to reactivate: ' + err.message);
+        }
+    };
+})();
+
 </script>
 </body>
 </html>
