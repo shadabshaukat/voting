@@ -8,7 +8,6 @@ def run():
     - Adds polls.slug (and a unique index) if missing
     - Adds choices.is_correct (default false) if missing; backfills NULL to FALSE
     - Adds participants.company if missing
-    - Adds participants.full_name and participants.email if missing (backfill full_name from legacy name)
     - Adds votes.question_id (backfilled from choices) and unique index on (participant_id, question_id)
     - Adds polls.poll_type with default 'trivia'
     - Adds polls.archived (default false)
@@ -22,11 +21,8 @@ def run():
         conn.execute(text("ALTER TABLE choices ADD COLUMN IF NOT EXISTS is_correct BOOLEAN DEFAULT FALSE;"))
         conn.execute(text("UPDATE choices SET is_correct = FALSE WHERE is_correct IS NULL;"))
 
-        # Participants: add fields (company, full_name, email)
+        # Participants: optional company field
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS company VARCHAR(150);"))
-        conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);"))
-        conn.execute(text("UPDATE participants SET full_name = name WHERE full_name IS NULL AND name IS NOT NULL;"))
-        conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS email VARCHAR(255);"))
 
         # Poll type: supports 'trivia' (has correct answers) and 'survey'/'poll' (no correct answers)
         conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS poll_type VARCHAR(20) DEFAULT 'trivia';"))

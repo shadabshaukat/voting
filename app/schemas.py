@@ -70,9 +70,8 @@ class PollRead(BaseModel):
 
 # ---------- Participant ----------
 class ParticipantCreate(BaseModel):
-    full_name: str = Field(..., max_length=150)
-    company: str = Field(..., max_length=150)
-    email: str = Field(..., max_length=255)
+    name: str = Field(..., max_length=150)
+    company: Optional[str] = Field(None, max_length=150)
 
 
 class VoteCreate(BaseModel):
