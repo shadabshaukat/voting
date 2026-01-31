@@ -60,8 +60,9 @@ class Participant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     poll_id = Column(Integer, ForeignKey("polls.id"))
-    name = Column(String(150), nullable=False)
+    full_name = Column(String(150), nullable=False)
     company = Column(String(150), nullable=True)
+    email = Column(String(255), nullable=True)
 
     poll = relationship("Poll", back_populates="participants")
     votes = relationship("Vote", back_populates="participant", cascade="all, delete-orphan")

@@ -119,7 +119,10 @@ def submit_votes(
 
     # Create participant record
     participant = models.Participant(
-        poll_id=poll.id, name=vote_data.participant.name, company=vote_data.participant.company
+        poll_id=poll.id,
+        full_name=vote_data.participant.full_name,
+        company=vote_data.participant.company,
+        email=vote_data.participant.email,
     )
     db_session.add(participant)
     db_session.flush()  # get participant.id
