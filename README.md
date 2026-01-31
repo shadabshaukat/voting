@@ -302,14 +302,51 @@ HTTPS_PORT=443
 ```
 
 Behavior:
-- If ENABLE_HTTPS is true and certificate paths are provided, manage.sh attempts to bind uvicorn directly to port 443 with TLS.
-- If direct bind to 443 fails (e.g., cloud VM restrictions), manage.sh automatically falls back to a tiny TLS terminator using `socat` that listens on :443 and forwards to the local HTTP backend on :8000. Install socat on Debian/Ubuntu with:
+- Run uvicorn with TLS on a non-privileged port (default 8443) controlled by HTTPS_PORT.
+- Use a reverse proxy (recommended: Nginx) to expose standard HTTPS on 443 and route to the app.
+
+Nginx setup (Ubuntu/Debian example):
 
 ```
-sudo apt-get install -y socat
+sudo apt-get update && sudo apt-get install -y nginx
+
+# Create a site config (adjust server_name, cert/key, ports)
+cat | sudo tee /etc/nginx/sites-available/votingapp.conf >/dev/null <<'NGINX'
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name example.com;  # change to your domain or _
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;  # or your paths
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    # Proxy to FastAPI TLS endpoint on 8443 (self-terminating), or use HTTP 8000 if preferred
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_pass https://127.0.0.1:8443;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com;  # change to your domain or _
+    return 301 https://$host$request_uri;
+}
+NGINX
+
+# Enable and reload
+sudo ln -s /etc/nginx/sites-available/votingapp.conf /etc/nginx/sites-enabled/votingapp.conf
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-- You can also change HTTPS_PORT to a non-privileged port (e.g., 8443) if desired.
+Notes:
+- The app can terminate TLS itself on 8443. If you prefer Nginx to terminate TLS and proxy HTTP to the app, set ENABLE_HTTPS=false and proxy_pass http://127.0.0.1:8000 instead.
+- OCI environments commonly block direct 443 binds for non-root processes; using Nginx on 443 is the supported approach.
+- You can still change HTTPS_PORT to any non-privileged port.
 
 ## Attendee Details Update
 

@@ -30,7 +30,6 @@ ENABLE_HTTPS=${ENABLE_HTTPS:-false}
 SSL_CERTFILE=${SSL_CERTFILE:-}
 SSL_KEYFILE=${SSL_KEYFILE:-}
 HTTPS_PORT=${HTTPS_PORT:-8443}
-ENABLE_443_PROXY=${ENABLE_443_PROXY:-false}
 
 # Helper: kill anything on a given port and known processes
 kill_port() {
@@ -132,26 +131,6 @@ EOF
         echo "${SERVER_PID}" > "${PID_FILE}"
         TARGET_PORT="${HTTPS_PORT}"
 
-        # Optionally start a 443 proxy if requested (requires privileges or setcap on 'socat')
-        if [[ "${ENABLE_443_PROXY}" =~ ^(1|true|yes)$ ]]; then
-            if command -v socat >/dev/null 2>&1; then
-                echo "Attempting to start TLS proxy on :443 -> :${HTTPS_PORT}..."
-                socat openssl-listen:443,reuseaddr,cert="${SSL_CERTFILE}",key="${SSL_KEYFILE}",fork TCP:127.0.0.1:"${HTTPS_PORT}" &
-                PROXY_PID=$!
-                echo "${PROXY_PID}" > "${PROXY_PID_FILE}"
-                sleep 0.6
-                if command -v lsof >/dev/null 2>&1 && lsof -ti:443 >/dev/null 2>&1; then
-                    echo "TLS proxy started on :443 (PID ${PROXY_PID}), forwarding to :${HTTPS_PORT}."
-                else
-                    echo "WARNING: Could not bind to :443. On Linux this requires root or CAP_NET_BIND_SERVICE."
-                    echo "You can enable it via: sudo setcap 'cap_net_bind_service=+ep' $(command -v socat)"
-                    echo "Alternatively, configure your cloud Load Balancer to forward 443 -> ${HTTPS_PORT} on the instance."
-                fi
-            else
-                echo "WARNING: 'socat' not found. Install it with 'sudo apt-get install -y socat' (Debian/Ubuntu) to enable optional :443 proxy."
-                echo "Alternatively, configure your cloud Load Balancer to forward 443 -> ${HTTPS_PORT} on the instance."
-            fi
-        fi
     else
         echo "Starting FastAPI (HTTP) on :${UVICORN_PORT}..."
         uv run uvicorn app.main:app --host "${UVICORN_HOST}" --port "${UVICORN_PORT}" &

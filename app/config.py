@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     HTTPS_PORT: int = Field(443, env="HTTPS_PORT")
     UVICORN_HOST: Optional[str] = Field(None, env="UVICORN_HOST")
     UVICORN_PORT: Optional[int] = Field(None, env="UVICORN_PORT")
+    # Accept but ignore optional legacy flag (was used for socat proxy)
+    ENABLE_443_PROXY: bool = Field(False, env="ENABLE_443_PROXY")
 
     class Config:
         env_file = ".env"
