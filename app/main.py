@@ -55,11 +55,8 @@ def run_startup_migrations():
         conn.execute(text("ALTER TABLE choices ADD COLUMN IF NOT EXISTS is_correct BOOLEAN DEFAULT FALSE;"))
         conn.execute(text("UPDATE choices SET is_correct = FALSE WHERE is_correct IS NULL;"))
 
-        # In case participants.company/full_name/email were added later
+        # In case participants.company was added later
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS company VARCHAR(150);"))
-        conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);"))
-        conn.execute(text("UPDATE participants SET full_name = name WHERE full_name IS NULL AND name IS NOT NULL;"))
-        conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS email VARCHAR(255);"))
 
         # Poll type column for different modes: 'trivia' (has correct answers) vs 'survey'/'poll'
         conn.execute(text("ALTER TABLE polls ADD COLUMN IF NOT EXISTS poll_type VARCHAR(20) DEFAULT 'trivia';"))
@@ -103,14 +100,4 @@ def on_startup():
     finally:
         db_session.close()
 if __name__ == "__main__":
-    import os
-    host = os.getenv("UVICORN_HOST", "0.0.0.0")
-    http_port = int(os.getenv("UVICORN_PORT", "8000"))
-    enable_https = os.getenv("ENABLE_HTTPS", "false").lower() in ("1","true","yes")
-    ssl_certfile = os.getenv("SSL_CERTFILE")
-    ssl_keyfile = os.getenv("SSL_KEYFILE")
-    https_port = int(os.getenv("HTTPS_PORT", "443"))
-    if enable_https and ssl_certfile and ssl_keyfile:
-        uvicorn.run("app.main:app", host=host, port=https_port, reload=True, ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)
-    else:
-        uvicorn.run("app.main:app", host=host, port=http_port, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

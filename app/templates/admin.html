@@ -541,13 +541,13 @@ document.getElementById('create-poll-form').onsubmit = async (e) => {
     };
     try {
         await api('/admin/polls', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
-        alert('Event created');
+        alert('Poll created');
         f.reset();
         document.getElementById('questions-container').innerHTML = '';
         questionCount = 0;
         loadPolls();
     } catch (err) {
-        alert('Failed to create event: ' + err.message);
+        alert('Failed to create poll: ' + err.message);
     }
 };
 
@@ -661,14 +661,14 @@ async function loadPolls() {
                 lbBtn.onclick = async () => { await openResults(p.id); document.getElementById('view-leaderboard').click(); };
             }
             row.querySelector('.delete-btn').onclick = async () => {
-                if (!confirm('Delete this Event and all associated data?')) return;
+                if (!confirm('Delete this poll and all associated data?')) return;
                 try { await api(`/admin/polls/${p.id}`, { method:'DELETE' }); destroyCharts(); document.getElementById('results-section').style.display = 'none'; loadPolls(); }
-                catch (err) { alert('Failed to delete event: ' + err.message); }
+                catch (err) { alert('Failed to delete poll: ' + err.message); }
             };
             listDiv.appendChild(node);
         });
     } catch (err) {
-        listDiv.innerHTML = `<p>Error loading events: ${err.message}</p>`;
+        listDiv.innerHTML = `<p>Error loading polls: ${err.message}</p>`;
     }
 }
 
@@ -709,7 +709,7 @@ async function openResults(pollId) {
     currentPollId = pollId;
     const res = await api(`/admin/polls/${pollId}/results`);
     const isTrivia = (res.poll_type || 'trivia') === 'trivia';
-    document.getElementById('results-title').textContent = res.title || `Event ${pollId}`;
+    document.getElementById('results-title').textContent = res.title || `Poll ${pollId}`;
 
     // Toggle trivia-specific UI
     const toggleCorrectInput = document.getElementById('toggle-correct');
@@ -801,7 +801,7 @@ if (exportBtn) exportBtn.addEventListener('click', async () => {
     const url = `/admin/polls/${currentPollId}/export.csv`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `event_${currentPollId}_summary.csv`;
+    a.download = `poll_${currentPollId}_summary.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
