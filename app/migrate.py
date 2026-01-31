@@ -25,7 +25,20 @@ def run():
         # Participants: add fields (company, full_name, email)
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS company VARCHAR(150);"))
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);"))
-        conn.execute(text("UPDATE participants SET full_name = name WHERE full_name IS NULL AND name IS NOT NULL;"))
+        conn.execute(text(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'participants' AND column_name = 'name'
+                ) THEN
+                    EXECUTE 'UPDATE participants SET full_name = name WHERE full_name IS NULL';
+                END IF;
+            END
+            $$;
+            """
+        ))
         conn.execute(text("ALTER TABLE participants ADD COLUMN IF NOT EXISTS email VARCHAR(255);"))
 
         # Poll type: supports 'trivia' (has correct answers) and 'survey'/'poll' (no correct answers)
