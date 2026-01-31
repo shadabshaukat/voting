@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
@@ -262,40 +262,6 @@ def deactivate_poll(poll_id: int):
     finally:
         db_session.close()
 
-@router.post("/polls/{poll_id}/reactivate")
-async def reactivate_poll(poll_id: int, request: Request):
-    """Reactivate an event for a given duration in minutes.
-    Sets is_active=True, archived=False, start_time=now, end_time=now+minutes.
-    Body: {"minutes": int}
-    """
-    db_session = db.SessionLocal()
-    try:
-        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
-        if not poll:
-            raise HTTPException(status_code=404, detail="Poll not found")
-        try:
-            payload = await request.json()
-        except Exception:
-            payload = {}
-        minutes = 5
-        try:
-            minutes = int(payload.get("minutes", 5))
-        except Exception:
-            minutes = 5
-        if minutes < 1:
-            minutes = 1
-        if minutes > 480:
-            minutes = 480
-        now = datetime.utcnow()
-        poll.is_active = True
-        poll.archived = False
-        poll.start_time = now
-        poll.end_time = now + timedelta(minutes=minutes)
-        db_session.commit()
-        return {"detail": "Poll reactivated", "id": poll.id, "start_time": poll.start_time.isoformat() if poll.start_time else None, "end_time": poll.end_time.isoformat() if poll.end_time else None}
-    finally:
-        db_session.close()
-
 @router.post("/polls/{poll_id}/archive")
 def archive_poll(poll_id: int):
     db_session = db.SessionLocal()
@@ -363,32 +329,10 @@ def export_poll_csv(poll_id: int):
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
         if not poll:
             raise HTTPException(status_code=404, detail="Poll not found")
-        # Compute per-question summaries with optional sentiment scoring for surveys
+        # Compute per-question summaries
         output = io.StringIO()
         writer = csv.writer(output)
-        # Header includes sentiment columns for wider analytics
-        writer.writerow([
-            "poll_id","title","type","question_index","question_id","question_text",
-            "choice_id","choice_text","votes","percent","is_correct","sentiment_score","weighted_score"
-        ])
-
-        def likert_score(text: str) -> int:
-            if not text:
-                return 0
-            t = text.strip().lower()
-            if t.startswith("strongly agree"):
-                return 5
-            if t.startswith("agree"):
-                return 4
-            if t.startswith("neutral"):
-                return 3
-            if t.startswith("disagree") and not t.startswith("strongly disagree"):
-                return 2
-            if t.startswith("strongly disagree"):
-                return 1
-            return 0
-
-        poll_type = getattr(poll, 'poll_type', 'trivia')
+        writer.writerow(["poll_id","title","type","question_index","question_id","question_text","choice_id","choice_text","votes","percent","is_correct"]) 
         for idx, question in enumerate(poll.questions, start=1):
             choices = question.choices
             # total votes for question
@@ -396,12 +340,7 @@ def export_poll_csv(poll_id: int):
             for c in choices:
                 count = db_session.query(models.Vote).filter(models.Vote.choice_id == c.id).count()
                 pct = round((count / total_votes) * 100)
-                score = likert_score(c.text) if poll_type == 'survey' else 0
-                weighted = score * count if score else 0
-                writer.writerow([
-                    poll.id, poll.title, poll_type, idx, question.id, question.text,
-                    c.id, c.text, count, pct, bool(getattr(c, 'is_correct', False)), score, weighted
-                ])
+                writer.writerow([poll.id, poll.title, getattr(poll, 'poll_type', 'trivia'), idx, question.id, question.text, c.id, c.text, count, pct, bool(getattr(c, 'is_correct', False))])
         csv_bytes = output.getvalue().encode('utf-8')
         headers = {"Content-Disposition": f"attachment; filename=event_{poll_id}_summary.csv"}
         return Response(content=csv_bytes, media_type="text/csv", headers=headers)
