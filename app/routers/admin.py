@@ -403,7 +403,7 @@ def export_poll_csv(poll_id: int):
                     c.id, c.text, count, pct, bool(getattr(c, 'is_correct', False)), score, weighted
                 ])
         csv_bytes = output.getvalue().encode('utf-8')
-        headers = {"Content-Disposition": f"attachment; filename=poll_{poll_id}_summary.csv"}
+        headers = {"Content-Disposition": f"attachment; filename=event_{poll_id}_summary.csv"}
         return Response(content=csv_bytes, media_type="text/csv", headers=headers)
     finally:
         db_session.close()
@@ -457,7 +457,7 @@ def poll_winners(poll_id: int):
             correct = sum(1 for v in votes if v.choice_id in correct_choice_ids)
             results.append({
                 "participant_id": p.id,
-                "name": p.name,
+                "name": p.full_name,
                 "company": p.company,
                 "correct_count": correct,
                 "total_questions": total_questions,
@@ -488,7 +488,7 @@ def trivia_leaderboard(poll_id: int):
             correct = sum(1 for v in votes if v.choice_id in correct_choice_ids)
             rows.append({
                 "participant_id": p.id,
-                "name": p.name,
+                "name": p.full_name,
                 "company": p.company,
                 "correct_count": correct,
                 "total_questions": total_questions,
@@ -520,7 +520,7 @@ def pick_random_winner(poll_id: int):
             votes = db_session.query(models.Vote).filter(models.Vote.participant_id == p.id).all()
             correct = sum(1 for v in votes if v.choice_id in correct_choice_ids)
             if correct == total_questions and total_questions > 0:
-                winners.append({"participant_id": p.id, "name": p.name, "company": p.company})
+                winners.append({"participant_id": p.id, "name": p.full_name, "company": p.company})
         if not winners:
             raise HTTPException(status_code=400, detail="No winners found")
         selected = random.choice(winners)
