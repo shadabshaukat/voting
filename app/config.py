@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
 
+    # Optional server/HTTPS settings (to avoid pydantic extra errors when set in .env)
+    ENABLE_HTTPS: bool = Field(False, env="ENABLE_HTTPS")
+    SSL_CERTFILE: Optional[str] = Field(None, env="SSL_CERTFILE")
+    SSL_KEYFILE: Optional[str] = Field(None, env="SSL_KEYFILE")
+    HTTPS_PORT: int = Field(443, env="HTTPS_PORT")
+    UVICORN_HOST: Optional[str] = Field(None, env="UVICORN_HOST")
+    UVICORN_PORT: Optional[int] = Field(None, env="UVICORN_PORT")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
