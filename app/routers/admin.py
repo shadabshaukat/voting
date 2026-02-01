@@ -210,6 +210,49 @@ def delete_poll(poll_id: int):
     finally:
         db_session.close()
 
+# ---------- Diagnostics: counts to verify clearing ----------
+@router.get("/polls/{poll_id}/counts")
+def poll_counts(poll_id: int, _: models.User = Depends(auth.get_current_admin_user)):
+    """Return counts of participants and votes for verification/debugging."""
+    db_session = db.SessionLocal()
+    try:
+        # participants
+        participants_count = db_session.query(models.Participant).filter(models.Participant.poll_id == poll_id).count()
+        # votes via participants
+        votes_via_participants = (
+            db_session.query(models.Vote)
+            .join(models.Participant, models.Participant.id == models.Vote.participant_id)
+            .filter(models.Participant.poll_id == poll_id)
+            .count()
+        )
+        # votes via choices->questions
+        votes_via_choices = (
+            db_session.query(models.Vote)
+            .join(models.Choice, models.Choice.id == models.Vote.choice_id)
+            .join(models.Question, models.Question.id == models.Choice.question_id)
+            .filter(models.Question.poll_id == poll_id)
+            .count()
+        )
+        return {
+            "poll_id": poll_id,
+            "participants": participants_count,
+            "votes_via_participants": votes_via_participants,
+            "votes_via_choices": votes_via_choices,
+        }
+    finally:
+        db_session.close()
+
+@router.get("/polls/by-slug/{slug}/counts")
+def poll_counts_by_slug(slug: str, _: models.User = Depends(auth.get_current_admin_user)):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found for slug")
+        return poll_counts(poll.id)  # reuse logic
+    finally:
+        db_session.close()
+
 
 @router.get("/polls")
 def list_polls():
