@@ -262,6 +262,36 @@ def deactivate_poll(poll_id: int):
     finally:
         db_session.close()
 
+
+# ---------- Reactivate with duration ----------
+class ReactivateRequest(BaseModel):
+    minutes: int = 2
+
+@router.post("/polls/{poll_id}/reactivate")
+def reactivate_poll(poll_id: int, req: ReactivateRequest):
+    db_session = db.SessionLocal()
+    try:
+        poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
+        if not poll:
+            raise HTTPException(status_code=404, detail="Poll not found")
+        # Clamp minutes to at least 1
+        minutes = 1
+        try:
+            minutes = max(1, int(getattr(req, 'minutes', 2) or 2))
+        except Exception:
+            minutes = 2
+        now = datetime.utcnow()
+        from datetime import timedelta
+        poll.is_active = True
+        poll.archived = False
+        poll.start_time = now
+        poll.end_time = now + timedelta(minutes=minutes)
+        db_session.commit()
+        db_session.refresh(poll)
+        return serialize_poll(poll)
+    finally:
+        db_session.close()
+
 @router.post("/polls/{poll_id}/archive")
 def archive_poll(poll_id: int):
     db_session = db.SessionLocal()

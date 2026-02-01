@@ -70,13 +70,29 @@ label.option-line .option-text {
     margin-top: 0.75rem;
 }
 
-/* Top-right timer */
+/* Top-right timer (circular with label) */
 #timer {
     position: absolute;
     top: 0.5rem;
     right: 0.75rem;
+    width: 56px;
+    height: 56px;
     font-weight: 600;
     color: #333;
+    display: grid;
+    place-items: center;
+}
+#timer .timer-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: conic-gradient(#2e7d32 0deg, #e0e0e0 0deg);
+    border: 2px solid #e0e0e0;
+    box-shadow: 0 0 6px rgba(0,0,0,0.1);
+}
+#timer .timer-label {
+    position: absolute;
+    font-size: 12px;
 }
 
 /* Status dots for admin list */
