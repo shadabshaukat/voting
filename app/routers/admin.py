@@ -282,6 +282,13 @@ class ReactivateRequest(BaseModel):
 
 @router.post("/polls/{poll_id}/reactivate")
 def reactivate_poll(poll_id: int, req: ReactivateRequest, _: models.User = Depends(auth.get_current_admin_user)):
+    """
+    Reactivate a poll for the given duration (minutes) and CLEAR any previous attendee
+    submissions so the event restarts fresh.
+
+    Clearing entails removing all votes for this poll and all its participants, while
+    keeping the poll, questions, and choices intact.
+    """
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -293,6 +300,30 @@ def reactivate_poll(poll_id: int, req: ReactivateRequest, _: models.User = Depen
             minutes = max(1, int(getattr(req, 'minutes', 2) or 2))
         except Exception:
             minutes = 2
+
+        # Purge previous attendees and votes so leaderboard/results reset
+        with db.engine.begin() as conn:
+            # Delete votes linked via participants for this poll
+            conn.execute(text(
+                """
+                DELETE FROM votes
+                WHERE participant_id IN (
+                    SELECT id FROM participants WHERE poll_id = :pid
+                )
+                """
+            ), {"pid": poll_id})
+            # Also delete any votes joined through choices for this poll (safety)
+            conn.execute(text(
+                """
+                DELETE FROM votes v
+                USING choices c, questions q
+                WHERE v.choice_id = c.id AND c.question_id = q.id AND q.poll_id = :pid
+                """
+            ), {"pid": poll_id})
+            # Finally delete participants for this poll
+            conn.execute(text("DELETE FROM participants WHERE poll_id = :pid"), {"pid": poll_id})
+
+        # Activate with new time window
         now = datetime.utcnow()
         from datetime import timedelta
         poll.is_active = True
