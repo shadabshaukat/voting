@@ -52,7 +52,7 @@ input, select, textarea {
 
 label.option-line {
     display: flex;
-    align-items: flex-start; /* keep text on same line wrapping next to control */
+    align-items: center;
     gap: 0.5rem;
     padding: 0.25rem 0;
 }
@@ -64,27 +64,35 @@ label.option-line input[type="radio"] {
 
 label.option-line .option-text {
     line-height: 1.3;
-    white-space: normal; /* allow wrapping */
-    word-break: break-word;
-    flex: 1; /* take remaining width next to the radio/checkbox */
 }
 
 #vote-form button[type="submit"] {
     margin-top: 0.75rem;
 }
 
-/* Simple top-right timer text */
+/* Top-right timer (circular with label) */
 #timer {
     position: absolute;
     top: 0.5rem;
     right: 0.75rem;
+    width: 56px;
+    height: 56px;
     font-weight: 600;
     color: #333;
-    background: #eef3ff;
-    border: 1px solid #dbe3ff;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-variant-numeric: tabular-nums;
+    display: grid;
+    place-items: center;
+}
+#timer .timer-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: conic-gradient(#2e7d32 0deg, #e0e0e0 0deg);
+    border: 2px solid #e0e0e0;
+    box-shadow: 0 0 6px rgba(0,0,0,0.1);
+}
+#timer .timer-label {
+    position: absolute;
+    font-size: 12px;
 }
 
 /* Status dots for admin list */
