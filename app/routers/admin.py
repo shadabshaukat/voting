@@ -290,26 +290,26 @@ def reactivate_poll(poll_id: int, req: ReactivateRequest):
             minutes = 2
 
         # Purge previous attendees and votes so leaderboard/results reset
-        # Use the same db_session transaction for consistent behavior
-        res_v1 = db_session.execute(text(
-            """
-            DELETE FROM votes
-            WHERE participant_id IN (
-                SELECT id FROM participants WHERE poll_id = :pid
-            )
-            """
-        ), {"pid": poll_id})
-        v_deleted_1 = res_v1.rowcount or 0
-        res_v2 = db_session.execute(text(
-            """
-            DELETE FROM votes v
-            USING choices c, questions q
-            WHERE v.choice_id = c.id AND c.question_id = q.id AND q.poll_id = :pid
-            """
-        ), {"pid": poll_id})
-        v_deleted_2 = res_v2.rowcount or 0
-        res_p = db_session.execute(text("DELETE FROM participants WHERE poll_id = :pid"), {"pid": poll_id})
-        p_deleted = res_p.rowcount or 0
+        with db.engine.begin() as conn:
+            # Delete votes linked via participants for this poll
+            conn.execute(text(
+                """
+                DELETE FROM votes
+                WHERE participant_id IN (
+                    SELECT id FROM participants WHERE poll_id = :pid
+                )
+                """
+            ), {"pid": poll_id})
+            # Also delete any votes joined through choices for this poll (safety)
+            conn.execute(text(
+                """
+                DELETE FROM votes v
+                USING choices c, questions q
+                WHERE v.choice_id = c.id AND c.question_id = q.id AND q.poll_id = :pid
+                """
+            ), {"pid": poll_id})
+            # Finally delete participants for this poll
+            conn.execute(text("DELETE FROM participants WHERE poll_id = :pid"), {"pid": poll_id})
 
         # Activate with new time window
         now = datetime.utcnow()
@@ -320,62 +320,7 @@ def reactivate_poll(poll_id: int, req: ReactivateRequest):
         poll.end_time = now + timedelta(minutes=minutes)
         db_session.commit()
         db_session.refresh(poll)
-        data = serialize_poll(poll)
-        data.update({"cleared": {"votes": v_deleted_1 + v_deleted_2, "participants": p_deleted}})
-        return data
-    finally:
-        db_session.close()
-
-@router.post("/polls/by-slug/{slug}/reactivate")
-def reactivate_poll_by_slug(slug: str, req: ReactivateRequest, _: models.User = Depends(auth.get_current_admin_user)):
-    """
-    Reactivate a poll identified by slug and CLEAR previous attendees/votes.
-    """
-    db_session = db.SessionLocal()
-    try:
-        poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
-        if not poll:
-            raise HTTPException(status_code=404, detail="Poll not found for slug")
-
-        minutes = 1
-        try:
-            minutes = max(1, int(getattr(req, 'minutes', 2) or 2))
-        except Exception:
-            minutes = 2
-
-        # Clear existing submissions for this poll
-        res_v1 = db_session.execute(text(
-            """
-            DELETE FROM votes
-            WHERE participant_id IN (
-                SELECT id FROM participants WHERE poll_id = :pid
-            )
-            """
-        ), {"pid": poll.id})
-        v_deleted_1 = res_v1.rowcount or 0
-        res_v2 = db_session.execute(text(
-            """
-            DELETE FROM votes v
-            USING choices c, questions q
-            WHERE v.choice_id = c.id AND c.question_id = q.id AND q.poll_id = :pid
-            """
-        ), {"pid": poll.id})
-        v_deleted_2 = res_v2.rowcount or 0
-        res_p = db_session.execute(text("DELETE FROM participants WHERE poll_id = :pid"), {"pid": poll.id})
-        p_deleted = res_p.rowcount or 0
-
-        # Activate window
-        now = datetime.utcnow()
-        from datetime import timedelta
-        poll.is_active = True
-        poll.archived = False
-        poll.start_time = now
-        poll.end_time = now + timedelta(minutes=minutes)
-        db_session.commit()
-        db_session.refresh(poll)
-        data = serialize_poll(poll)
-        data.update({"cleared": {"votes": v_deleted_1 + v_deleted_2, "participants": p_deleted}})
-        return {"detail": "Poll reactivated", "id": poll.id, **data}
+        return serialize_poll(poll)
     finally:
         db_session.close()
 
