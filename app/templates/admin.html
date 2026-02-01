@@ -73,7 +73,7 @@
                         <label>Join Code (optional)</label>
                         <input type="text" name="slug" id="slug" placeholder="e.g., a1b2c">
                         <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;">
-                            <input type="checkbox" id="generate_url"> Generate Join Code
+                            <input type="checkbox" id="generate_url"> <span>Generate Join Code</span>
                         </label>
                         <div id="slug_preview" style="font-size:0.9rem;color:#555;margin-top:0.25rem;display:none;"></div>
                     </div>
@@ -161,7 +161,7 @@
             choiceDiv.innerHTML = `
                 <input type="text" name="choice-${qIdx}" placeholder="Choice text" required style="flex:1;">
                 <label class="correct-flag" style="display:flex;align-items:center;gap:0.25rem;">
-                    <input type="checkbox" name="is_correct-${qIdx}"> Correct
+                    <input type="checkbox" name="is_correct-${qIdx}"> <span>Correct</span>
                 </label>
                 <button type="button" class="remove-choice-btn">Remove</button>
             `;
@@ -334,24 +334,24 @@
                         <span class="status-label" style="margin-left:0.35rem;font-size:0.9rem;color:#555;"></span>
                     </div>
                     <div class="row-actions">
-                        <button class="toggle-actions">Toggle Actions</button>
-                        <button class="toggle-json">Show details</button>
+                        <button class="row-toggle" title="Expand/Collapse">¸</button>
                     </div>
                 </div>
-                <div class="actions collapsible">
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.5rem 0;">
+                <div class="row-body collapsible" style="margin-top:0.5rem;">
+                    <div class="actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.25rem 0 0.5rem 0;">
                         <button class="activate-btn">Activate</button>
                         <button class="deactivate-btn">Deactivate</button>
                         <button class="reactivate-btn">Reactivate</button>
                         <button class="results-btn">View Results</button>
+                        <button class="details-btn" type="button">Details</button>
                         <button class="export-btn">Export CSV</button>
                         <button class="leaderboard-btn">Leaderboard</button>
                         <button class="delete-btn" style="background:#b00020;">Delete</button>
                     </div>
-                </div>
-                <pre class="json collapsible" style="max-height:150px;overflow:auto;margin:0.5rem 0;"></pre>
-                <div class="row-results collapsible" style="border-top:1px solid #eee;padding-top:0.5rem;margin-top:0.5rem;">
-                    <div class="row-results-body"></div>
+                    <pre class="json" style="max-height:150px;overflow:auto;margin:0.5rem 0;display:none;"></pre>
+                    <div class="row-results collapsible" style="border-top:1px solid #eee;padding-top:0.5rem;margin-top:0.5rem;">
+                        <div class="row-results-body"></div>
+                    </div>
                 </div>
             </div>
         </template>
@@ -362,10 +362,10 @@
                 <h2 style="margin:0;">Results: <span id="results-title"></span></h2>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
                     <label style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="checkbox" id="toggle-details"> Show details
+                        <input type="checkbox" id="toggle-details"> <span>Show details</span>
                     </label>
                     <label style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="checkbox" id="toggle-correct"> Show correct answers
+                        <input type="checkbox" id="toggle-correct"> <span>Show correct answers</span>
                     </label>
                     <button id="export-csv" type="button">Export CSV</button>
                     <button id="view-leaderboard" type="button">Leaderboard</button>
@@ -397,7 +397,7 @@
             </div>
 
             <div id="nonwinners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
-                <h3 style="margin:0;">Participants who didnt answer all correctly</h3>
+                <h3 style="margin:0;">Participants who didn't answer all correctly</h3>
                 <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
             </div>
         </section>
@@ -537,18 +537,27 @@ async function loadPolls() {
             dot.title = p.expired ? 'Expired' : (p.is_active ? 'Active' : 'Inactive');
             const labelEl = node.querySelector('.status-label');
             if (labelEl) labelEl.textContent = p.expired ? 'Expired' : (p.is_active ? 'Active' : 'Inactive');
+
+            // collapse handling
+            const rowBody = node.querySelector('.row-body');
+            const toggleBtn = node.querySelector('.row-toggle');
+            toggleBtn.onclick = () => {
+                const open = rowBody.classList.toggle('open');
+                toggleBtn.textContent = open ? '¾' : '¸';
+            };
+
             // actions
             const row = node.querySelector('.poll-row');
             const actions = node.querySelector('.actions');
             const json = node.querySelector('.json');
-            const toggleActions = node.querySelector('.toggle-actions');
-            const toggleJson = node.querySelector('.toggle-json');
-            toggleActions.onclick = () => actions.classList.toggle('open');
-            toggleJson.onclick = () => {
-                json.classList.toggle('open');
-                toggleJson.textContent = json.classList.contains('open') ? 'Hide details' : 'Show details';
+            const detailsBtn = node.querySelector('.details-btn');
+            detailsBtn.onclick = () => {
+                const isHidden = json.style.display === 'none' || json.style.display === '';
+                json.style.display = isHidden ? 'block' : 'none';
+                detailsBtn.textContent = isHidden ? 'Hide Details' : 'Details';
             };
             json.textContent = JSON.stringify(p, null, 2);
+
             // buttons wired per row
             row.querySelector('.activate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/activate`, { method:'POST' }); loadPolls(); };
             row.querySelector('.deactivate-btn').onclick = async () => { await api(`/admin/polls/${p.id}/deactivate`, { method:'POST' }); loadPolls(); };
@@ -772,39 +781,42 @@ async function openResults(pollId) {
                 }
             }
         });
-
-// Export CSV
-const exportBtn = document.getElementById('export-csv');
-if (exportBtn) exportBtn.addEventListener('click', async () => {
-    if (!currentPollId) return;
-    const url = `/admin/polls/${currentPollId}/export.csv`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `poll_${currentPollId}_summary.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-});
-
-// Leaderboard
-const lbBtn = document.getElementById('view-leaderboard');
-if (lbBtn) lbBtn.addEventListener('click', async () => {
-    if (!currentPollId) return;
-    try {
-        const res = await api(`/admin/polls/${currentPollId}/leaderboard`);
-        const list = document.getElementById('leaderboard-list');
-        list.innerHTML = '';
-        (res.rows || []).forEach(r => {
-            const li = document.createElement('li');
-            li.textContent = `${r.name || 'Anonymous'}${r.company ? ' (' + r.company + ')' : ''} - ${r.correct_count}/${r.total_questions} (${r.percent}%)`;
-            list.appendChild(li);
-        });
-    } catch (err) {
-        alert('Failed to load leaderboard: ' + err.message);
-    }
-});
         charts.push({ chart, isCorrects });
     });
+
+    // Attach one-time listeners (outside loop) for export and leaderboard
+    const exportBtn = document.getElementById('export-csv');
+    if (exportBtn) {
+        exportBtn.onclick = () => {
+            if (!currentPollId) return;
+            const url = `/admin/polls/${currentPollId}/export.csv`;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `poll_${currentPollId}_summary.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+    }
+
+    const lbBtn = document.getElementById('view-leaderboard');
+    if (lbBtn) {
+        lbBtn.onclick = async () => {
+            if (!currentPollId) return;
+            try {
+                const res = await api(`/admin/polls/${currentPollId}/leaderboard`);
+                const list = document.getElementById('leaderboard-list');
+                list.innerHTML = '';
+                (res.rows || []).forEach(r => {
+                    const li = document.createElement('li');
+                    li.textContent = `${r.name || 'Anonymous'}${r.company ? ' (' + r.company + ')' : ''} - ${r.correct_count}/${r.total_questions} (${r.percent}%)`;
+                    list.appendChild(li);
+                });
+            } catch (err) {
+                alert('Failed to load leaderboard: ' + err.message);
+            }
+        };
+    }
 
     document.getElementById('results-section').style.display = 'block';
 
@@ -812,6 +824,7 @@ if (lbBtn) lbBtn.addEventListener('click', async () => {
 
     // Respect details toggle on initial open
     const details = document.getElementById('toggle-details').checked;
+    const chartsContainer = document.getElementById('results-charts');
     chartsContainer.style.display = details ? 'grid' : 'none';
     document.getElementById('winners-list').style.display = details ? 'block' : 'none';
     document.getElementById('nonwinners-panel').style.display = details ? 'block' : 'none';
@@ -883,8 +896,8 @@ async function loadWinners() {
         if (nonwinners.length > 0) {
             nonwinners.forEach(n => {
                 const li = document.createElement('li');
-                li.textContent = `${n.name || 'Anonymous'}${n.company ? ' (' + n.company + ')' : ''}  ${n.correct_count}/${n.total_questions} correct`;
-                nonList.appendChild(li);
+                li.textContent = `${n.name || 'Anonymous'}${n.company ? ' (' + n.company + ')' : ''} - ${n.correct_count}/${n.total_questions} correct`;
+                listEl.appendChild(li);
             });
         } else {
             nonList.innerHTML = '<li>Everyone answered all questions correctly.</li>';
