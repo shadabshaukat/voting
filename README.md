@@ -153,6 +153,12 @@ Create the file (or copy the provided template) and adjust the values to match y
 | `DB_USER` | Database user | `voting_user` |
 | `DB_PASSWORD` | Database password (single‑quoted; special characters are stripped by the app) | `voting_pass` |
 | `DB_SSLMODE` | SSL mode (require) | `require` |
+| `DB_POOLCLASS` | SQLAlchemy pool class: `QueuePool` (default) or `NullPool` (use with PgBouncer) | `QueuePool` |
+| `DB_POOL_SIZE` | Pool size (QueuePool only) | `5` |
+| `DB_POOL_MAX_OVERFLOW` | Additional connections above pool_size (QueuePool only) | `10` |
+| `DB_POOL_RECYCLE` | Recycle connections after N seconds | `1800` |
+| `DB_POOL_PRE_PING` | Validate connections before use | `true` |
+| `DB_POOL_USE_LIFO` | LIFO queueing for connections (reduces latency spikes) | `true` |
 | `ADMIN_USERNAME` | Admin username for simple .env authentication | `admin` |
 | `ADMIN_PASSWORD` | Admin password for simple .env authentication | `admin123` |
 | `JWT_SECRET_KEY` | Secret used to sign JWT tokens | `supersecretkey` |

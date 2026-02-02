@@ -149,6 +149,59 @@
                         { text: 'CHECKPOINT', is_correct: false }
                     ]}
                 ]
+            },
+            ai_world_tour_pg: {
+                poll_type: 'trivia',
+                title: 'AI World Tour PostgreSQL Trivia',
+                description: 'Test your Postgres Knowledge and win a surprise gift @OracleAIWorldTour',
+                slug: 'oracle2026',
+                questions: [
+                    {
+                        text: 'Which configuration parameter most directly impacts the efficiency of complex queries involving large sorts or hash joins?',
+                        choices: [
+                            { text: 'shared_buffers', is_correct: false },
+                            { text: 'work_mem', is_correct: true },
+                            { text: 'effective_cache_size', is_correct: false },
+                            { text: 'maintenance_work_mem', is_correct: false }
+                        ]
+                    },
+                    {
+                        text: 'Which index type is most commonly recommended for approximate nearest-neighbor searches using pgvector on large datasets?',
+                        choices: [
+                            { text: 'B-tree', is_correct: false },
+                            { text: 'Hash', is_correct: false },
+                            { text: 'IVFFLAT', is_correct: true },
+                            { text: 'BRIN', is_correct: false }
+                        ]
+                    },
+                    {
+                        text: 'When using an IVFFLAT index, which action is required to get optimal query performance?',
+                        choices: [
+                            { text: 'Run VACUUM FULL after index creation', is_correct: false },
+                            { text: 'Increase shared_buffers', is_correct: false },
+                            { text: 'Set an appropriate number of lists during index creation', is_correct: true },
+                            { text: 'Disable sequential scans', is_correct: false }
+                        ]
+                    },
+                    {
+                        text: 'Which PostgreSQL data type is best suited for storing structured JSON data that needs to be queried efficiently?',
+                        choices: [
+                            { text: 'JSON', is_correct: false },
+                            { text: 'JSONB', is_correct: true },
+                            { text: 'VARCHAR', is_correct: false },
+                            { text: 'TEXT', is_correct: false }
+                        ]
+                    },
+                    {
+                        text: 'What is the primary performance benefit of PostgreSQLs autovacuum process?',
+                        choices: [
+                            { text: 'It rebuilds all indexes automatically', is_correct: false },
+                            { text: 'It compresses table data', is_correct: false },
+                            { text: 'It increases shared_buffers dynamically', is_correct: false },
+                            { text: 'It prevents transaction ID wraparound and removes dead tuples', is_correct: true }
+                        ]
+                    }
+                ]
             }
         };
 
@@ -268,6 +321,15 @@
             document.querySelector('textarea[name="description"]').value = t.description || '';
             const typeSel = document.getElementById('poll_type');
             if (typeSel) typeSel.value = t.poll_type || 'trivia';
+            // if template provides a slug, set it and update preview
+            if (t.slug) {
+                const slugInput = document.getElementById('slug');
+                if (slugInput) {
+                    slugInput.value = t.slug;
+                    const ev = new Event('input');
+                    slugInput.dispatchEvent(ev);
+                }
+            }
             clearQuestions();
             (t.questions || []).forEach(q => {
                 const qEl = buildQuestionBlockFromData(q);
