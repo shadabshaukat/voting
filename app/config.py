@@ -19,6 +19,15 @@ class Settings(BaseSettings):
         return v
     DB_SSLMODE: str = Field("require", env="DB_SSLMODE")
 
+    # SQLAlchemy connection pool settings (tunable via env)
+    DB_POOL_SIZE: int = Field(5, env="DB_POOL_SIZE")
+    DB_POOL_MAX_OVERFLOW: int = Field(10, env="DB_POOL_MAX_OVERFLOW")
+    DB_POOL_RECYCLE: int = Field(1800, env="DB_POOL_RECYCLE")  # seconds; 30 minutes
+    DB_POOL_PRE_PING: bool = Field(True, env="DB_POOL_PRE_PING")
+    DB_POOL_USE_LIFO: bool = Field(True, env="DB_POOL_USE_LIFO")
+    # Use 'NullPool' when connecting via PgBouncer in transaction pooling mode, else QueuePool
+    DB_POOLCLASS: str = Field("QueuePool", env="DB_POOLCLASS")
+
     # Simple admin credentials (read from .env)
     ADMIN_USERNAME: str = Field(..., env="ADMIN_USERNAME")
     ADMIN_PASSWORD: str = Field(..., env="ADMIN_PASSWORD")
