@@ -70,29 +70,23 @@ label.option-line .option-text {
     margin-top: 0.75rem;
 }
 
-/* Top-right timer (circular with label) */
+/* Simple top-right timer text with label */
 #timer {
     position: absolute;
     top: 0.5rem;
     right: 0.75rem;
-    width: 56px;
-    height: 56px;
     font-weight: 600;
     color: #333;
-    display: grid;
-    place-items: center;
+    background: #eef3ff;
+    border: 1px solid #dbe3ff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
 }
-#timer .timer-ring {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: conic-gradient(#2e7d32 0deg, #e0e0e0 0deg);
-    border: 2px solid #e0e0e0;
-    box-shadow: 0 0 6px rgba(0,0,0,0.1);
-}
-#timer .timer-label {
-    position: absolute;
-    font-size: 12px;
+#timer::before {
+    content: 'Time Remaining: ';
+    margin-right: 0.35rem;
+    color: #2a3b8f;
 }
 
 /* Status dots for admin list */
@@ -112,8 +106,7 @@ label.option-line .option-text {
 .collapsible { display: none; }
 .collapsible.open { display: block; }
 
-/* Clock icon next to timer text */
-.clock { margin-right: 0.35rem; }
+/* (replaced icon with text label via ::before) */
 
 /* Admin row actions alignment */
 .row-actions {
