@@ -113,9 +113,32 @@ def submit_votes(
     vote_data: schemas.VoteSubmit,
     db_session: Session = Depends(db.get_db),
 ):
-    poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id, models.Poll.is_active == True, models.Poll.archived == False).first()
+    poll = (
+        db_session.query(models.Poll)
+        .filter(
+            models.Poll.id == poll_id,
+            models.Poll.is_active == True,
+            models.Poll.archived == False,
+        )
+        .first()
+    )
     if not poll:
         raise HTTPException(status_code=404, detail="Active poll not found")
+
+    # Enforce submission cutoff if end_time is set
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    try:
+        if poll.end_time is not None:
+            end = poll.end_time
+            # ensure timezone-aware comparison
+            if end.tzinfo is None:
+                from datetime import timezone as _tz
+                end = end.replace(tzinfo=_tz.utc)
+            if now > end:
+                raise HTTPException(status_code=403, detail="This session has ended. Submissions are closed.")
+    except Exception:
+        # if parsing fails, proceed without blocking
+        pass
 
     # Create participant record
     participant = models.Participant(
