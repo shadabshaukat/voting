@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0069d9">
+    <meta name="application-name" content="Voting & Trivia App">
+    <meta name="description" content="Create and manage live surveys, polls and trivia. Works offline and installable.">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="manifest" href="/static/manifest.json">
     <script>
@@ -14,10 +18,32 @@
     </script>
     <!-- Chart.js for results visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+        // Minimal PWA install handler for admin page
+        let __adminDeferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            __adminDeferredPrompt = e;
+            const btn = document.getElementById('install-btn-admin');
+            if (btn) btn.style.display = 'inline-block';
+        });
+        window.addEventListener('appinstalled', () => {
+            __adminDeferredPrompt = null;
+            const btn = document.getElementById('install-btn-admin');
+            if (btn) btn.style.display = 'none';
+        });
+        function triggerAdminInstall(){
+            if (!__adminDeferredPrompt) return;
+            __adminDeferredPrompt.prompt();
+            __adminDeferredPrompt.userChoice.finally(() => { __adminDeferredPrompt = null; const btn = document.getElementById('install-btn-admin'); if (btn) btn.style.display = 'none'; });
+        }
+    </script>
 </head>
 <body>
 <div class="container" id="admin-container">
+    <div style="position:absolute;top:10px;right:12px;display:flex;gap:8px;align-items:center;">
+        <button id="install-btn-admin" type="button" onclick="triggerAdminInstall()" style="display:none;background:#2e7d32;">Install App</button>
+    </div>
     <h1>Admin Dashboard</h1>
 
     <section id="login-section">
@@ -420,25 +446,6 @@
         </template>
 
         <!-- Results & Winners Panel (simple by default) -->
-        <section id="results-section" style="display:none;margin-top:1rem;border-top:1px solid #ddd;padding-top:1rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
-                <h2 style="margin:0;">Results: <span id="results-title"></span></h2>
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <label style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="checkbox" id="toggle-details"> Show details
-                    </label>
-                    <label style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="checkbox" id="toggle-correct"> Show correct answers
-                    </label>
-                    <button id="export-csv" type="button">Export CSV</button>
-                    <button id="view-leaderboard" type="button">Leaderboard</button>
-                    <button id="close-results" type="button">Close</button>
-                </div>
-            </div>
-
-            <!-- Simple winner display -->
-            <div id="winner-main" style="margin-top:0.5rem;padding:0.5rem 0;font-weight:600;color:#2e7d32;"></div>
-
             <!-- Charts (hidden by default until details enabled) -->
             <div id="results-charts" style="display:none;margin-top:0.75rem;gap:1rem;"></div>
 
@@ -447,20 +454,19 @@
                 <ol id="leaderboard-list" style="margin:0;padding-left:1.25rem;"></ol>
             </div>
 
-            <div id="winners-panel" style="margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin:0;">Winners</h3>
-                    <div style="display:flex;gap:0.5rem;">
-                        <button id="refresh-winners" type="button">Refresh</button>
-                        <button id="pick-winner" type="button">Pick Random Winner</button>
-                    </div>
+            <div id="winners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
+                    </label>
+                    <button id="export-csv" type="button">Export CSV</button>
+                    <button id="view-leaderboard" type="button">Leaderboard</button>
+                    <button id="close-results" type="button">Close</button>
                 </div>
-                <div id="picked-winner" style="margin-top:0.5rem;color:#2e7d32;font-weight:600;"></div>
-                <ul id="winners-list" style="margin-top:0.5rem;display:none;"></ul>
             </div>
 
+            <!-- Simple winner display -->
             <div id="nonwinners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
-                <h3 style="margin:0;">Participants who didnt answer all correctly</h3>
+                <h3 style="margin:0;">Participants who didn't answer all correctly</h3>
+                <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
+            </div>
                 <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
             </div>
         </section>
@@ -695,7 +701,23 @@ async function loadPolls() {
                     rowResults.classList.add('open');
                 }
             };
-            row.querySelector('.export-btn').onclick = async () => { window.location.href = `/admin/polls/${p.id}/export.csv`; };
+            row.querySelector('.export-btn').onclick = async () => {
+                try {
+                    const resp = await fetch(`/admin/polls/${p.id}/export.csv`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+                    if (!resp.ok) { const t = await resp.text(); throw new Error(`Error ${resp.status}: ${t}`); }
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `event_${p.id}_summary.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                } catch (err) {
+                    alert('Failed to export CSV: ' + err.message);
+                }
+            };
             const lbBtn = row.querySelector('.leaderboard-btn');
             if ((p.poll_type || 'trivia') !== 'trivia') {
                 lbBtn.style.display = 'none';
@@ -836,17 +858,25 @@ async function openResults(pollId) {
             }
         });
 
-// Export CSV
+// Export CSV (results panel)
 const exportBtn = document.getElementById('export-csv');
 if (exportBtn) exportBtn.addEventListener('click', async () => {
     if (!currentPollId) return;
-    const url = `/admin/polls/${currentPollId}/export.csv`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `event_${currentPollId}_summary.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+        const resp = await fetch(`/admin/polls/${currentPollId}/export.csv`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        if (!resp.ok) { const t = await resp.text(); throw new Error(`Error ${resp.status}: ${t}`); }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `event_${currentPollId}_summary.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert('Failed to export CSV: ' + err.message);
+    }
 });
 
 // Leaderboard

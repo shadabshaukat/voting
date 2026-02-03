@@ -1,10 +1,15 @@
 {
+  "id": "com.voting.trivia",
   "name": "Voting & Trivia App",
   "short_name": "VotingApp",
-  "start_url": "/",
+  "description": "Create and run live surveys, polls, and trivia with real-time results.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0069d9",
+  "categories": ["productivity", "events", "utilities", "social"],
+  "orientation": "any",
   "icons": [
     {
       "src": "/static/icon.svg",

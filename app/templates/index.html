@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Live Events</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0069d9">
+    <meta name="application-name" content="Voting & Trivia App">
+    <meta name="description" content="Join live surveys, polls and trivia. Works offline and installable.">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="manifest" href="/static/manifest.json">
     <script>
@@ -12,11 +16,13 @@
                 .catch(err => console.error('SW registration failed:', err));
         }
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
 <div class="container" id="poll-container">
     <!-- Poll content will be injected by main.js -->
+    <div style="position:absolute;top:10px;right:12px;display:flex;gap:8px;align-items:center;">
+        <button id="install-btn" type="button" style="display:none;background:#2e7d32;">Install App</button>
+    </div>
 </div>
 
 <!-- Entry Modal: Type + Code/Title -->

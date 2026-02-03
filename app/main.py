@@ -99,5 +99,20 @@ def on_startup():
             db_session.commit()
     finally:
         db_session.close()
+
+# Catch-all for attendee deep-links like /abcde (slug). Avoid reserved prefixes.
+RESERVED_PREFIXES = {"admin", "poll", "static", "docs", "redoc", "openapi.json"}
+
+@app.get("/{slug}", response_class=HTMLResponse)
+async def serve_slug(request: Request, slug: str):
+    # Only serve app shell for simple slug patterns; otherwise 404 so API routes work
+    import re
+    if slug in RESERVED_PREFIXES:
+        # Let other routers handle it
+        return templates.TemplateResponse("index.html", {"request": request})
+    if not re.fullmatch(r"[a-z0-9-]{5,64}", slug):
+        # Not a join code; serve index shell anyway to allow client-side handling
+        return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request})
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

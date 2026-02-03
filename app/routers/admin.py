@@ -53,16 +53,47 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/login", response_model=schemas.Token)
-def login(login_req: LoginRequest):
-    # Simple validation against credentials stored in .env via Settings
+def login(login_req: LoginRequest, db_session: Session = Depends(db.get_db)):
+    """
+    Authenticate against the database first; fallback to .env credentials.
+    If .env credentials are used and the user doesn't exist, create a DB admin user
+    so that token-based auth works uniformly across protected endpoints.
+    """
+    # Try DB-backed authentication first
+    user = (
+        db_session.query(models.User)
+        .filter(models.User.username == login_req.username)
+        .first()
+    )
+    if user and auth.verify_password(login_req.password, user.hashed_password):
+        access_token = auth.create_access_token(data={"sub": user.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    # Fallback to .env admin credentials
     if (
-        login_req.username != config.settings.ADMIN_USERNAME
-        or login_req.password != config.settings.ADMIN_PASSWORD
+        login_req.username == config.settings.ADMIN_USERNAME
+        and login_req.password == config.settings.ADMIN_PASSWORD
     ):
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    # If credentials match, generate a token for the admin user
-    access_token = auth.create_access_token(data={"sub": login_req.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+        existing = (
+            db_session.query(models.User)
+            .filter(models.User.username == login_req.username)
+            .first()
+        )
+        if not existing:
+            # Create DB admin with provided .env password to unify auth checks
+            hashed = auth.get_password_hash(login_req.password)
+            existing = models.User(
+                username=login_req.username,
+                hashed_password=hashed,
+                is_admin=True,
+            )
+            db_session.add(existing)
+            db_session.commit()
+            db_session.refresh(existing)
+        access_token = auth.create_access_token(data={"sub": existing.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    raise HTTPException(status_code=400, detail="Incorrect username or password")
 
 
 # ---------- Admin User Creation (initial setup) ----------
@@ -70,6 +101,7 @@ def login(login_req: LoginRequest):
 def create_admin(
     user_in: schemas.UserCreate,
     db_session: Session = Depends(db.get_db),
+    current_admin: models.User = Depends(auth.get_current_admin_user),
 ):
     existing = db_session.query(models.User).filter(models.User.username == user_in.username).first()
     if existing:
@@ -85,7 +117,10 @@ def create_admin(
 
 # ---------- Poll Management ----------
 @router.post("/polls")
-async def create_poll(request: Request):
+async def create_poll(
+    request: Request,
+    current_admin: models.User = Depends(auth.get_current_admin_user),
+):
     db_session = db.SessionLocal()
     try:
         payload = await request.json()
@@ -168,7 +203,7 @@ async def create_poll(request: Request):
 
 
 @router.delete("/polls/{poll_id}")
-def delete_poll(poll_id: int):
+def delete_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     """Robustly delete a poll and all related data via SQL (votes -> participants/choices -> questions -> poll)."""
     db_session = db.SessionLocal()
     try:
@@ -212,7 +247,7 @@ def delete_poll(poll_id: int):
 
 
 @router.get("/polls")
-def list_polls():
+def list_polls(current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         polls = db_session.query(models.Poll).all()
@@ -222,7 +257,7 @@ def list_polls():
 
 
 @router.get("/polls/{poll_id}")
-def get_poll(poll_id: int):
+def get_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -234,7 +269,7 @@ def get_poll(poll_id: int):
 
 
 @router.post("/polls/{poll_id}/activate")
-def activate_poll(poll_id: int):
+def activate_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -249,7 +284,7 @@ def activate_poll(poll_id: int):
 
 
 @router.post("/polls/{poll_id}/deactivate")
-def deactivate_poll(poll_id: int):
+def deactivate_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -268,7 +303,11 @@ class ReactivateRequest(BaseModel):
     minutes: int = 2
 
 @router.post("/polls/{poll_id}/reactivate")
-def reactivate_poll(poll_id: int, req: ReactivateRequest):
+def reactivate_poll(
+    poll_id: int,
+    req: ReactivateRequest,
+    current_admin: models.User = Depends(auth.get_current_admin_user),
+):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -293,7 +332,7 @@ def reactivate_poll(poll_id: int, req: ReactivateRequest):
         db_session.close()
 
 @router.post("/polls/{poll_id}/archive")
-def archive_poll(poll_id: int):
+def archive_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -309,7 +348,7 @@ def archive_poll(poll_id: int):
         db_session.close()
 
 @router.post("/polls/{poll_id}/unarchive")
-def unarchive_poll(poll_id: int):
+def unarchive_poll(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -323,7 +362,7 @@ def unarchive_poll(poll_id: int):
 
 # Activate/Deactivate by slug (code)
 @router.post("/polls/by-slug/{slug}/activate")
-def activate_poll_by_slug(slug: str):
+def activate_poll_by_slug(slug: str, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
@@ -337,7 +376,7 @@ def activate_poll_by_slug(slug: str):
         db_session.close()
 
 @router.post("/polls/by-slug/{slug}/deactivate")
-def deactivate_poll_by_slug(slug: str):
+def deactivate_poll_by_slug(slug: str, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(func.lower(models.Poll.slug) == func.lower(slug)).first()
@@ -353,7 +392,7 @@ def deactivate_poll_by_slug(slug: str):
 
 # ---------- CSV Export ----------
 @router.get("/polls/{poll_id}/export.csv")
-def export_poll_csv(poll_id: int):
+def export_poll_csv(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -380,7 +419,7 @@ def export_poll_csv(poll_id: int):
 
 # ---------- Results ----------
 @router.get("/polls/{poll_id}/results")
-def poll_results(poll_id: int):
+def poll_results(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()
@@ -406,7 +445,7 @@ def poll_results(poll_id: int):
 
 
 @router.get("/polls/{poll_id}/winners")
-def poll_winners(poll_id: int):
+def poll_winners(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     """Compute winners (participants with all answers correct). Only valid for 'trivia' polls."""
     db_session = db.SessionLocal()
     try:
@@ -439,7 +478,7 @@ def poll_winners(poll_id: int):
 
 
 @router.get("/polls/{poll_id}/leaderboard")
-def trivia_leaderboard(poll_id: int):
+def trivia_leaderboard(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     """Return trivia leaderboard sorted by correct answers desc (and timestamp asc)."""
     db_session = db.SessionLocal()
     try:
@@ -471,7 +510,7 @@ def trivia_leaderboard(poll_id: int):
 
 
 @router.post("/polls/{poll_id}/pick-winner")
-def pick_random_winner(poll_id: int):
+def pick_random_winner(poll_id: int, current_admin: models.User = Depends(auth.get_current_admin_user)):
     db_session = db.SessionLocal()
     try:
         poll = db_session.query(models.Poll).filter(models.Poll.id == poll_id).first()

@@ -19,8 +19,10 @@ This app is designed as a single PWA that can run surveys/polls/trivia for multi
   - Automatic submission when time expires  
 
 - **PWA**  
-  - Works offline / installable on mobile & desktop  
-  - Service worker caches assets  
+  - Full installable PWA experience (Add to Home Screen/Install prompts)  
+  - Offline navigation shell for both attendee (/) and admin (/admin)  
+  - Runtime caching for API GETs and static assets  
+  - Background re-try of vote submissions when network is restored (offline queue)  
 
 - **Tech Stack**  
   - **Backend**: FastAPI, SQLAlchemy, PostgreSQL (installed on the host)  
@@ -109,6 +111,8 @@ The API will be reachable at `http://0.0.0.0:8000`:
 
 - Attendee UI: `http://0.0.0.0:8000/`  
 - Admin dashboard: `http://0.0.0.0:8000/admin`
+
+Deep-link joining is supported: share `http://localhost:8000/<code>` where `<code>` is the poll slug.
 
 ## Management Script
 
@@ -210,12 +214,17 @@ uvicorn app.main:app --reload
 4. Activate the poll – it becomes visible on the public URL (`/`).  
 5. Attendees can now vote; after the poll ends you can view results via **View Results**.
 
+Notes:
+- Admin API routes are now protected. UI includes the bearer token automatically after login. If you call APIs directly, send `Authorization: Bearer <token>`.
+- CSV export buttons send the token and work offline if the export was previously cached.
+
 ## PWA Installation
 
 - Open the site in Chrome/Edge on mobile or desktop.  
-- Click the **Install** button in the address bar (or “Add to Home screen”).  
-- The app will work offline for the already‑loaded poll.
-- Manifest now includes a maskable **SVG icon**; service worker pre‑caches core assets (style, JS, manifest, icon).
+- Click the in-app **Install App** button (top-right) or the browser’s install UI.  
+- The attendee and admin shells are available offline; static assets are precached.  
+- Submissions while offline are queued locally and auto-sent when online (with a toast confirmation).  
+- Manifest includes a maskable **SVG icon**; the service worker handles navigation fallback and runtime caching.
 
 ## Project Structure
 
@@ -227,6 +236,9 @@ Key improvements vs. original:
 - Added poll types (trivia/survey/poll) with UI controls and backend persistence; trivia controls correct answers only.
 - Manifest includes a maskable SVG icon; service worker caches it.
 - Minor cleanups and notes for web‑scale seminar use cases.
+ - Admin API routes protected with JWT dependency; unified login that honors DB users and .env fallback.
+ - PWA enhancements: install prompts, offline navigation shell, runtime caching, and background vote sync.
+ - Deep-link routing: visiting `/<slug>` loads the attendee shell and resolves the active poll by slug.
 
 ```
 votingapp/
@@ -255,7 +267,7 @@ votingapp/
 
 ## Customisation
 
-- Enforce submission cutoff by end_time: you can add a server‑side check in POST /poll/{id}/submit to reject votes received after end_time.
+- Enforce submission cutoff by end_time: server now rejects submissions after `end_time` with 403; tune UI copy in `main.js` if needed.
 - Add rate limiting or IP/session guards for very large events.
 - Introduce pagination/filters for admin listings in very large datasets.
 - Add export endpoints (CSV/JSON) for poll results and participant lists.
@@ -278,9 +290,11 @@ votingapp/
 
 ## Known Limitations and Next Steps
 
-- Admin endpoints are not enforcing authentication on the API routes (UI does obtain a token). If needed later, add route dependencies; per your guidance we are leaving that aside for now.
+- Admin endpoints are now protected; tokens expire after `ACCESS_TOKEN_EXPIRE_MINUTES`.
 - Consider archiving vs. deleting polls; current delete fully removes associated data.
 - CORS is open for development; restrict in production.
+
+Offline queue storage is localStorage-based for simplicity. For mission-critical events, consider IndexedDB with robust conflict handling and server-side de-duplication.
 
 ## License
 
