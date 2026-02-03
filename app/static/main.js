@@ -114,7 +114,7 @@ async function startPoll(pollId, participant) {
             return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         }
         function renderTimer() {
-            timerEl.innerHTML = `<span class="clock">ð</span> ${format(remaining)}`;
+            timerEl.innerHTML = `<span class="clock"></span> ${format(remaining)}`;
         }
         renderTimer();
         pollTimer = setInterval(() => {
