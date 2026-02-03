@@ -442,6 +442,9 @@
                 <div class="row-results collapsible" style="border-top:1px solid #eee;padding-top:0.5rem;margin-top:0.5rem;">
                     <div class="row-results-body"></div>
                 </div>
+                <div class="row-leaderboard collapsible" style="border-top:1px solid #eee;padding-top:0.5rem;margin-top:0.5rem;">
+                    <div class="row-leaderboard-body"></div>
+                </div>
             </div>
         </template>
 
@@ -739,10 +742,60 @@ async function loadPolls() {
                 }
             };
             const lbBtn = row.querySelector('.leaderboard-btn');
+            const lbPanel = row.querySelector('.row-leaderboard');
+            const lbBody = row.querySelector('.row-leaderboard-body');
             if ((p.poll_type || 'trivia') !== 'trivia') {
                 lbBtn.style.display = 'none';
             } else {
-                lbBtn.onclick = async () => { await openResults(p.id); document.getElementById('view-leaderboard').click(); };
+                lbBtn.onclick = async () => {
+                    // Toggle panel
+                    if (lbPanel.classList.contains('open')) {
+                        lbPanel.classList.remove('open');
+                        lbBody.innerHTML = '';
+                        return;
+                    }
+                    // Open and load leaderboard + winners
+                    lbPanel.classList.add('open');
+                    lbBody.innerHTML = 'Loading leaderboard...';
+                    try {
+                        const [lbRes, winRes] = await Promise.all([
+                            api(`/admin/polls/${p.id}/leaderboard`),
+                            api(`/admin/polls/${p.id}/winners`)
+                        ]);
+                        const wrapper = document.createElement('div');
+                        // Winners summary
+                        const winners = (winRes && Array.isArray(winRes.winners)) ? winRes.winners : [];
+                        const winDiv = document.createElement('div');
+                        winDiv.style.marginBottom = '0.5rem';
+                        winDiv.innerHTML = `<strong>Winners:</strong> ${winners.length > 0 ? winners.map(w => `${w.name || 'Anonymous'}${w.company ? ' ('+w.company+')' : ''}`).join(', ') : '(none yet)'}`;
+                        wrapper.appendChild(winDiv);
+
+                        // Leaderboard list
+                        const h = document.createElement('div');
+                        h.style.margin = '0.25rem 0';
+                        h.innerHTML = '<strong>Leaderboard</strong>';
+                        wrapper.appendChild(h);
+                        const ol = document.createElement('ol');
+                        ol.style.margin = '0';
+                        ol.style.paddingLeft = '1.25rem';
+                        (lbRes.rows || []).forEach(r => {
+                            const li = document.createElement('li');
+                            li.textContent = `${r.name || 'Anonymous'}${r.company ? ' (' + r.company + ')' : ''} - ${r.correct_count}/${r.total_questions} (${r.percent}%)`;
+                            ol.appendChild(li);
+                        });
+                        if (!lbRes.rows || lbRes.rows.length === 0) {
+                            const li = document.createElement('li');
+                            li.textContent = 'No submissions yet.';
+                            ol.appendChild(li);
+                        }
+                        wrapper.appendChild(ol);
+
+                        lbBody.innerHTML = '';
+                        lbBody.appendChild(wrapper);
+                    } catch (err) {
+                        lbBody.innerHTML = `<p>Error loading leaderboard: ${err.message}</p>`;
+                    }
+                };
             }
             row.querySelector('.delete-btn').onclick = async () => {
                 if (!confirm('Delete this event and all associated data?')) return;

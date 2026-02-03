@@ -117,3 +117,33 @@ label.option-line .option-text {
 .row-actions button {
     padding: 0.4rem 0.8rem;
 }
+
+/* Per-row collapsible panels styling */
+.poll-row {
+    margin-bottom: 0.75rem;
+}
+.poll-row .row-results,
+.poll-row .row-leaderboard {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+.poll-row pre.json {
+    background: #f7f7f7;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+.row-leaderboard ol {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+.row-leaderboard strong {
+    font-weight: 600;
+}
+
+/* Ensure status label aligns nicely */
+.poll-row .status-label {
+    vertical-align: middle;
+}
