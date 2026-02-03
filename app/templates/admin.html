@@ -763,11 +763,42 @@ async function loadPolls() {
                             api(`/admin/polls/${p.id}/winners`)
                         ]);
                         const wrapper = document.createElement('div');
-                        // Winners summary
+                        // Winners summary + per-row pick button
                         const winners = (winRes && Array.isArray(winRes.winners)) ? winRes.winners : [];
                         const winDiv = document.createElement('div');
+                        winDiv.style.display = 'flex';
+                        winDiv.style.alignItems = 'center';
+                        winDiv.style.justifyContent = 'space-between';
+                        winDiv.style.gap = '0.5rem';
                         winDiv.style.marginBottom = '0.5rem';
-                        winDiv.innerHTML = `<strong>Winners:</strong> ${winners.length > 0 ? winners.map(w => `${w.name || 'Anonymous'}${w.company ? ' ('+w.company+')' : ''}`).join(', ') : '(none yet)'}`;
+                        const winLabel = document.createElement('div');
+                        winLabel.innerHTML = `<strong>Winners:</strong> ${winners.length > 0 ? winners.map(w => `${w.name || 'Anonymous'}${w.company ? ' ('+w.company+')' : ''}`).join(', ') : '(none yet)'}`;
+                        winDiv.appendChild(winLabel);
+                        const pickWrap = document.createElement('div');
+                        const pickMsg = document.createElement('span');
+                        pickMsg.style.marginLeft = '0.5rem';
+                        if (winners.length > 1) {
+                            const pickBtn = document.createElement('button');
+                            pickBtn.textContent = 'Pick Random Winner';
+                            pickBtn.className = 'mini-btn';
+                            pickBtn.onclick = async () => {
+                                pickBtn.disabled = true;
+                                pickBtn.textContent = 'Picking...';
+                                try {
+                                    const r = await api(`/admin/polls/${p.id}/pick-winner`, { method: 'POST' });
+                                    const w = r.winner;
+                                    pickMsg.textContent = ` Selected: ${w.name || 'Anonymous'}${w.company ? ' (' + w.company + ')' : ''}`;
+                                } catch (err) {
+                                    pickMsg.textContent = ` Failed: ${err.message}`;
+                                } finally {
+                                    pickBtn.disabled = false;
+                                    pickBtn.textContent = 'Pick Random Winner';
+                                }
+                            };
+                            pickWrap.appendChild(pickBtn);
+                            pickWrap.appendChild(pickMsg);
+                        }
+                        winDiv.appendChild(pickWrap);
                         wrapper.appendChild(winDiv);
 
                         // Leaderboard list

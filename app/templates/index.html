@@ -8,31 +8,41 @@
     <meta name="application-name" content="Voting & Trivia App">
     <meta name="description" content="Join live surveys, polls and trivia. Works offline and installable.">
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="/static/manifest.json" crossorigin="anonymous">
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js')
-                .then(() => console.log('Service Worker registered'))
-                .catch(err => console.error('SW registration failed:', err));
-        }
+        // Defer SW registration until window load for more reliable scope and caching
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(() => console.log('Service Worker registered'))
+                    .catch(err => console.error('SW registration failed:', err));
+            }
+        });
     </script>
 </head>
 <body>
+<noscript>
+    <div style="max-width:800px;margin:1rem auto;background:#fff3cd;border:1px solid #ffeeba;color:#856404;padding:0.75rem 1rem;border-radius:6px;">
+        This app requires JavaScript to run. Please enable JavaScript and reload the page.
+    </div>
+    <style> #entry-modal,#participant-modal { display: none !important; } </style>
+    <!-- Keep content readable even without JS -->
+</noscript>
 <div class="container" id="poll-container">
     <!-- Poll content will be injected by main.js -->
     <div style="position:absolute;top:10px;right:12px;display:flex;gap:8px;align-items:center;">
-        <button id="install-btn" type="button" style="display:none;background:#2e7d32;">Install App</button>
+        <button id="install-btn" type="button" aria-label="Install app" style="display:none;background:#2e7d32;">Install App</button>
     </div>
 </div>
 
 <!-- Entry Modal: Type + Code/Title -->
-<div id="entry-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
+<div id="entry-modal" role="dialog" aria-modal="true" aria-labelledby="entry-modal-title" tabindex="-1" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
     <div style="background:#fff;padding:2rem;margin:8% auto;width:90%;max-width:520px;border-radius:8px;">
-        <h2>Join a Survey / Poll / Trivia</h2>
+        <h2 id="entry-modal-title">Join a Survey / Poll / Trivia</h2>
         <form id="entry-form">
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
                 <div style="flex:1;min-width:180px;">
-                    <label>Type</label>
+                    <label for="entry-type">Type</label>
                     <select name="type" id="entry-type">
                         <option value="trivia" selected>Trivia</option>
                         <option value="survey">Survey</option>
@@ -40,17 +50,19 @@
                     </select>
                 </div>
                 <div style="flex:2;min-width:220px;">
-                    <label>Join by</label>
-                    <select id="entry-mode" name="mode">
+                    <label for="entry-mode">Join by</label>
+                    <select id="entry-mode" name="mode" aria-describedby="entry-mode-hint">
                         <option value="active">Use Active</option>
                         <option value="title">Title</option>
                         <option value="slug">Code</option>
                     </select>
+                    <small id="entry-mode-hint" class="hint" style="color:#555;">We'll auto-join the currently active session for this type.</small>
                 </div>
             </div>
             <div id="entry-value-wrap" style="margin-top:0.5rem;display:none;">
-                <label id="entry-value-label">Title</label>
-                <input type="text" id="entry-value" placeholder="Enter title or code">
+                <label id="entry-value-label" for="entry-value">Title</label>
+                <input type="text" id="entry-value" placeholder="Enter title or code" aria-describedby="entry-value-hint">
+                <small id="entry-value-hint" class="hint" style="color:#555;display:block;margin-top:0.25rem;">Enter the exact Title shared by the host.</small>
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;">
                 <button type="submit">Continue</button>
@@ -60,14 +72,14 @@
 </div>
 
 <!-- Participant Modal -->
-<div id="participant-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
+<div id="participant-modal" role="dialog" aria-modal="true" aria-labelledby="participant-modal-title" tabindex="-1" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);">
     <div style="background:#fff;padding:2rem;margin:10% auto;width:90%;max-width:400px;border-radius:8px;">
-        <h2>Enter your details</h2>
+        <h2 id="participant-modal-title">Enter your details</h2>
         <form id="participant-form">
-            <label>Full Name (required)</label>
-            <input type="text" name="name" required>
-            <label>Company (required)</label>
-            <input type="text" name="company">
+            <label for="participant-name">Full Name (required)</label>
+            <input id="participant-name" type="text" name="name" required autocomplete="name" placeholder="Your full name">
+            <label for="participant-company">Company (optional)</label>
+            <input id="participant-company" type="text" name="company" autocomplete="organization" placeholder="Your company (optional)">
             <button type="submit">Start</button>
         </form>
     </div>
