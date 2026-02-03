@@ -147,3 +147,36 @@ label.option-line .option-text {
 .poll-row .status-label {
     vertical-align: middle;
 }
+
+/* Compact button for inline actions */
+.mini-btn {
+    background-color: #0069d9;
+    color: #fff;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.mini-btn:disabled { opacity: 0.7; cursor: default; }
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.badge.offline {
+    background: #fff3cd;
+    color: #8a6d3b;
+    border: 1px solid #ffeeba;
+}
+
+/* Validation highlight */
+.invalid-block {
+    border: 1px solid #b00020 !important;
+    background: #fff8f8 !important;
+    border-radius: 6px;
+}
