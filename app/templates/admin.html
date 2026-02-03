@@ -445,7 +445,25 @@
             </div>
         </template>
 
-        <!-- Results & Winners Panel (simple by default) -->
+        <!-- Results & Winners Panel (fully structured) -->
+        <section id="results-section" style="display:none;margin-top:1rem;border-top:1px solid #ddd;padding-top:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+                <h2 style="margin:0;">Results: <span id="results-title"></span></h2>
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    <label style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="checkbox" id="toggle-details"> Show details
+                    </label>
+                    <label style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="checkbox" id="toggle-correct"> Show correct answers
+                    </label>
+                    <button id="export-csv" type="button">Export CSV</button>
+                    <button id="view-leaderboard" type="button">Leaderboard</button>
+                    <button id="close-results" type="button">Close</button>
+                </div>
+            </div>
+
+            <div id="winner-main" style="margin-top:0.5rem;padding:0.5rem 0;font-weight:600;color:#2e7d32;"></div>
+
             <!-- Charts (hidden by default until details enabled) -->
             <div id="results-charts" style="display:none;margin-top:0.75rem;gap:1rem;"></div>
 
@@ -455,20 +473,22 @@
             </div>
 
             <div id="winners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
-                    </label>
-                    <button id="export-csv" type="button">Export CSV</button>
-                    <button id="view-leaderboard" type="button">Leaderboard</button>
-                    <button id="close-results" type="button">Close</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;">Winners</h3>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button id="refresh-winners" type="button">Refresh</button>
+                        <button id="pick-winner" type="button">Pick Random Winner</button>
+                    </div>
                 </div>
+                <div id="picked-winner" style="margin-top:0.5rem;color:#2e7d32;font-weight:600;"></div>
+                <ul id="winners-list" style="margin-top:0.5rem;display:none;"></ul>
             </div>
 
-            <!-- Simple winner display -->
             <div id="nonwinners-panel" style="display:none;margin-top:1rem;border:1px solid #eee;padding:0.75rem;border-radius:6px;">
                 <h3 style="margin:0;">Participants who didn't answer all correctly</h3>
                 <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
             </div>
-                <ul id="nonwinners-list" style="margin-top:0.5rem;"></ul>
-            </div>
+        </section>
         </section>
     </section>
 </div>
@@ -726,8 +746,19 @@ async function loadPolls() {
             }
             row.querySelector('.delete-btn').onclick = async () => {
                 if (!confirm('Delete this event and all associated data?')) return;
-                try { await api(`/admin/polls/${p.id}`, { method:'DELETE' }); destroyCharts(); document.getElementById('results-section').style.display = 'none'; loadPolls(); }
-                catch (err) { alert('Failed to delete poll: ' + err.message); }
+                try {
+                    await api(`/admin/polls/${p.id}`, { method:'DELETE' });
+                    // Safely hide results panel if it exists
+                    destroyCharts();
+                    const rs = document.getElementById('results-section');
+                    if (rs && rs.style) {
+                        rs.style.display = 'none';
+                    }
+                    // Refresh list
+                    loadPolls();
+                } catch (err) {
+                    alert('Failed to delete poll: ' + err.message);
+                }
             };
             listDiv.appendChild(node);
         });
