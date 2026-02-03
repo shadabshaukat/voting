@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'votingapp-static-v12';
-const RUNTIME_CACHE = 'votingapp-runtime-v12';
+const STATIC_CACHE = 'votingapp-static-v13';
+const RUNTIME_CACHE = 'votingapp-runtime-v13';
 const PRECACHE_URLS = [
   '/',
   '/admin',
