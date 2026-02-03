@@ -84,9 +84,15 @@ label.option-line .option-text {
     font-variant-numeric: tabular-nums;
 }
 #timer::before {
+    /* Icon + label before the numeric time */
     content: 'Time Remaining: ';
-    margin-right: 0.35rem;
     color: #2a3b8f;
+    margin-right: 0.35rem;
+    padding-left: 18px; /* space for the icon */
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+    background-position: left center;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='%232a3b8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='13' r='8'/><path d='M12 9v4l3 2'/><path d='M9 2h6'/></svg>");
 }
 
 /* Status dots for admin list */
