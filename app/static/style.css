@@ -186,3 +186,27 @@ label.option-line .option-text {
     background: #fff8f8 !important;
     border-radius: 6px;
 }
+
+/* Simple toast notifications */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    background: rgba(33, 33, 33, 0.95);
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    z-index: 9999;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 200ms ease, transform 200ms ease;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.toast.success { background: rgba(33, 150, 83, 0.95); }
+.toast.warn { background: rgba(251, 140, 0, 0.95); }
+.toast.info { background: rgba(33, 33, 33, 0.95); }
